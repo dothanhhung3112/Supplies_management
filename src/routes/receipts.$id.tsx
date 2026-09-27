@@ -17,15 +17,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { formatDateTime } from "@/lib/warehouse/format";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData, useDeleteReceipt } from "@/lib/warehouse/queries";
 
 export const Route = createFileRoute("/receipts/$id")({ component: ReceiptDetailPage });
 
 function ReceiptDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const receipt = useWarehouseStore((s) => s.receipts.find((r) => r.id === id));
-  const deleteReceipt = useWarehouseStore((s) => s.deleteReceipt);
+  const { data } = useWarehouseData();
+  const receipt = data?.receipts.find((r) => r.id === id);
+  const deleteReceipt = useDeleteReceipt();
 
   if (!receipt) {
     return (
@@ -41,13 +42,16 @@ function ReceiptDetailPage() {
   const current = receipt;
 
   function onDelete() {
-    const err = deleteReceipt(current.id);
-    if (err) {
-      toast.error(err);
-      return;
-    }
-    toast.success("Đã xóa phiếu nháp.");
-    void navigate({ to: "/receipts" });
+    deleteReceipt.mutate(current.id, {
+      onSuccess: (err) => {
+        if (err) {
+          toast.error(err);
+          return;
+        }
+        toast.success("Đã xóa phiếu nháp.");
+        void navigate({ to: "/receipts" });
+      },
+    });
   }
 
   return (

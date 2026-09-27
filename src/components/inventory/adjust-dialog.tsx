@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatQty } from "@/lib/warehouse/format";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useAdjustStock } from "@/lib/warehouse/queries";
 import type { Material } from "@/lib/warehouse/types";
 
 export function AdjustDialog({
@@ -27,7 +27,7 @@ export function AdjustDialog({
   material: Material | null;
   currentQty: number;
 }) {
-  const adjustStock = useWarehouseStore((s) => s.adjustStock);
+  const adjustStock = useAdjustStock();
   const [qty, setQty] = useState("");
   const [note, setNote] = useState("");
   const [dir, setDir] = useState<"in" | "out">("out");
@@ -49,13 +49,20 @@ export function AdjustDialog({
       return;
     }
     const signed = dir === "out" ? -n : n;
-    const err = adjustStock(material.id, signed, note);
-    if (err) {
-      toast.error(err);
-      return;
-    }
-    toast.success("Đã ghi điều chỉnh tồn kho.");
-    onOpenChange(false);
+    adjustStock.mutate(
+      { materialId: material.id, quantity: signed, note },
+      {
+        onSuccess: (err) => {
+          if (err) {
+            toast.error(err);
+            return;
+          }
+          toast.success("Đã ghi điều chỉnh tồn kho.");
+          onOpenChange(false);
+        },
+        onError: () => toast.error("Có lỗi khi ghi điều chỉnh."),
+      },
+    );
   }
 
   return (
@@ -113,7 +120,9 @@ export function AdjustDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Hủy
             </Button>
-            <Button type="submit">Ghi điều chỉnh</Button>
+            <Button type="submit" disabled={adjustStock.isPending}>
+              Ghi điều chỉnh
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

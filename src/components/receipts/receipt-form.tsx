@@ -12,7 +12,7 @@ import { uid } from "@/lib/utils";
 import { formatNumber, formatVnd, todayIsoDate } from "@/lib/warehouse/format";
 import { WAREHOUSES } from "@/lib/warehouse/seed";
 import { receiptTotal, uniqueSuppliers } from "@/lib/warehouse/selectors";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData, useSaveReceipt, usePostReceipt } from "@/lib/warehouse/queries";
 import type { Receipt, ReceiptLine } from "@/lib/warehouse/types";
 
 function emptyLine(): ReceiptLine {
@@ -21,11 +21,12 @@ function emptyLine(): ReceiptLine {
 
 export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
   const navigate = useNavigate();
-  const categories = useWarehouseStore((s) => s.categories);
-  const materials = useWarehouseStore((s) => s.materials);
-  const receipts = useWarehouseStore((s) => s.receipts);
-  const saveReceipt = useWarehouseStore((s) => s.saveReceipt);
-  const postReceipt = useWarehouseStore((s) => s.postReceipt);
+  const { data } = useWarehouseData();
+  const categories = data?.categories ?? [];
+  const materials = data?.materials ?? [];
+  const receipts = data?.receipts ?? [];
+  const saveReceipt = useSaveReceipt();
+  const postReceipt = usePostReceipt();
 
   const posted = receipt?.status === "posted";
   const [date, setDate] = useState(receipt?.date ?? todayIsoDate());
@@ -84,21 +85,37 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
 
   function onSaveDraft() {
     if (!validate()) return;
-    const id = saveReceipt(payload(), receipt?.id);
-    toast.success("Đã lưu nháp.");
-    if (!receipt) void navigate({ to: "/receipts/$id", params: { id } });
+    saveReceipt.mutate(
+      { input: payload(), existingId: receipt?.id },
+      {
+        onSuccess: (id) => {
+          toast.success("Đã lưu nháp.");
+          if (!receipt) void navigate({ to: "/receipts/$id", params: { id } });
+        },
+        onError: () => toast.error("Lưu nháp thất bại."),
+      },
+    );
   }
 
   function onPost() {
     if (!validate()) return;
-    const id = saveReceipt(payload(), receipt?.id);
-    const err = postReceipt(id);
-    if (err) {
-      toast.error(err);
-      return;
-    }
-    toast.success("Đã ghi sổ phiếu nhập. Tồn kho đã được cập nhật.");
-    void navigate({ to: "/receipts/$id", params: { id } });
+    saveReceipt.mutate(
+      { input: payload(), existingId: receipt?.id },
+      {
+        onSuccess: (id) => {
+          postReceipt.mutate(id, {
+            onSuccess: (err) => {
+              if (err) {
+                toast.error(err);
+                return;
+              }
+              toast.success("Đã ghi sổ phiếu nhập. Tồn kho đã được cập nhật.");
+              void navigate({ to: "/receipts/$id", params: { id } });
+            },
+          });
+        },
+      },
+    );
   }
 
   return (

@@ -6,15 +6,16 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { formatDateTime, formatQty, formatVnd } from "@/lib/warehouse/format";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData } from "@/lib/warehouse/queries";
 import type { MovementType } from "@/lib/warehouse/types";
 
 export const Route = createFileRoute("/history")({ component: HistoryPage });
 
 function HistoryPage() {
-  const materials = useWarehouseStore((s) => s.materials);
-  const receipts = useWarehouseStore((s) => s.receipts);
-  const movements = useWarehouseStore((s) => s.movements);
+  const { data } = useWarehouseData();
+  const materials = data?.materials ?? [];
+  const receipts = data?.receipts ?? [];
+  const movements = data?.movements ?? [];
   const [q, setQ] = useState("");
   const [type, setType] = useState<"all" | MovementType>("all");
 

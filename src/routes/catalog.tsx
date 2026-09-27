@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData, useDeleteMaterial, useDeleteCategory } from "@/lib/warehouse/queries";
 import { formatNumber, formatVnd } from "@/lib/warehouse/format";
 import type { Category, Material } from "@/lib/warehouse/types";
 
@@ -32,8 +32,9 @@ export const Route = createFileRoute("/catalog")({ component: CatalogPage });
 
 function CatalogPage() {
   const [tab, setTab] = useState<"materials" | "categories">("materials");
-  const categories = useWarehouseStore((s) => s.categories);
-  const materials = useWarehouseStore((s) => s.materials);
+  const { data } = useWarehouseData();
+  const categories = data?.categories ?? [];
+  const materials = data?.materials ?? [];
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [matOpen, setMatOpen] = useState(false);
@@ -42,8 +43,8 @@ function CatalogPage() {
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [deletingMat, setDeletingMat] = useState<Material | null>(null);
   const [deletingCat, setDeletingCat] = useState<Category | null>(null);
-  const deleteMaterial = useWarehouseStore((s) => s.deleteMaterial);
-  const deleteCategory = useWarehouseStore((s) => s.deleteCategory);
+  const deleteMaterial = useDeleteMaterial();
+  const deleteCategory = useDeleteCategory();
 
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? "—";
 
@@ -58,18 +59,24 @@ function CatalogPage() {
 
   function confirmDeleteMat() {
     if (!deletingMat) return;
-    const err = deleteMaterial(deletingMat.id);
-    if (err) toast.error(err);
-    else toast.success("Đã xóa vật tư.");
-    setDeletingMat(null);
+    deleteMaterial.mutate(deletingMat.id, {
+      onSuccess: (err) => {
+        if (err) toast.error(err);
+        else toast.success("Đã xóa vật tư.");
+        setDeletingMat(null);
+      },
+    });
   }
 
   function confirmDeleteCat() {
     if (!deletingCat) return;
-    const err = deleteCategory(deletingCat.id);
-    if (err) toast.error(err);
-    else toast.success("Đã xóa nhóm hàng.");
-    setDeletingCat(null);
+    deleteCategory.mutate(deletingCat.id, {
+      onSuccess: (err) => {
+        if (err) toast.error(err);
+        else toast.success("Đã xóa nhóm hàng.");
+        setDeletingCat(null);
+      },
+    });
   }
 
   return (

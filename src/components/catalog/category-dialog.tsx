@@ -12,20 +12,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useAddCategory, useUpdateCategory } from "@/lib/warehouse/queries";
 import type { Category } from "@/lib/warehouse/types";
 
-export function CategoryDialog({
-  open,
-  onOpenChange,
-  category,
-}: {
+export function CategoryDialog({ open, onOpenChange, category }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   category?: Category | null;
 }) {
-  const addCategory = useWarehouseStore((s) => s.addCategory);
-  const updateCategory = useWarehouseStore((s) => s.updateCategory);
+  const addCategory = useAddCategory();
+  const updateCategory = useUpdateCategory();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
@@ -44,11 +40,12 @@ export function CategoryDialog({
     }
     const payload = { name: name.trim(), description: description.trim() };
     if (category) {
-      updateCategory(category.id, payload);
-      toast.success("Đã cập nhật nhóm hàng.");
+      updateCategory.mutate(
+        { id: category.id, input: payload },
+        { onSuccess: () => toast.success("Đã cập nhật nhóm hàng.") },
+      );
     } else {
-      addCategory(payload);
-      toast.success("Đã thêm nhóm hàng.");
+      addCategory.mutate(payload, { onSuccess: () => toast.success("Đã thêm nhóm hàng.") });
     }
     onOpenChange(false);
   }

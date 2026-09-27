@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDate, formatVnd } from "@/lib/warehouse/format";
 import { receiptTotal } from "@/lib/warehouse/selectors";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData } from "@/lib/warehouse/queries";
 
 export const Route = createFileRoute("/receipts/")({ component: ReceiptsPage });
 
 function ReceiptsPage() {
-  const receipts = useWarehouseStore((s) => s.receipts);
+  const { data } = useWarehouseData();
+  const receipts = data?.receipts ?? [];
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | "draft" | "posted">("all");
 

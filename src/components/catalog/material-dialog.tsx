@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UNITS } from "@/lib/warehouse/seed";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData, useAddMaterial, useUpdateMaterial } from "@/lib/warehouse/queries";
 import type { Material } from "@/lib/warehouse/types";
 
 type Form = {
@@ -50,9 +50,10 @@ export function MaterialDialog({
   onOpenChange: (v: boolean) => void;
   material?: Material | null;
 }) {
-  const categories = useWarehouseStore((s) => s.categories);
-  const addMaterial = useWarehouseStore((s) => s.addMaterial);
-  const updateMaterial = useWarehouseStore((s) => s.updateMaterial);
+  const { data } = useWarehouseData();
+  const categories = data?.categories ?? [];
+  const addMaterial = useAddMaterial();
+  const updateMaterial = useUpdateMaterial();
   const [form, setForm] = useState<Form>(fromMaterial());
 
   useEffect(() => {
@@ -80,11 +81,12 @@ export function MaterialDialog({
       lastUnitPrice: Number(form.lastUnitPrice) || 0,
     };
     if (material) {
-      updateMaterial(material.id, payload);
-      toast.success("Đã cập nhật vật tư.");
+      updateMaterial.mutate(
+        { id: material.id, input: payload },
+        { onSuccess: () => toast.success("Đã cập nhật vật tư.") },
+      );
     } else {
-      addMaterial(payload);
-      toast.success("Đã thêm vật tư.");
+      addMaterial.mutate(payload, { onSuccess: () => toast.success("Đã thêm vật tư.") });
     }
     onOpenChange(false);
   }

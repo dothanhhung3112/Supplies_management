@@ -1,13 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Boxes, ClipboardList, History, LayoutDashboard, Package, Search, Warehouse } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData } from "@/lib/warehouse/queries";
 import { formatDate } from "@/lib/warehouse/format";
-
-type SearchCtx = { open: boolean; setOpen: (v: boolean) => void };
-const Ctx = createContext<SearchCtx>({ open: false, setOpen: () => {} });
+import { SearchContext, useSearchOpen } from "@/lib/search-context";
 
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -21,11 +19,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  return <Ctx.Provider value={{ open, setOpen }}>{children}</Ctx.Provider>;
-}
-
-export function useSearchOpen() {
-  return useContext(Ctx);
+  return <SearchContext.Provider value={{ open, setOpen }}>{children}</SearchContext.Provider>;
 }
 
 const PAGES = [
@@ -41,8 +35,10 @@ export function SearchCommand() {
   const { open, setOpen } = useSearchOpen();
   const [q, setQ] = useState("");
   const navigate = useNavigate();
-  const materials = useWarehouseStore((s) => s.materials);
-  const receipts = useWarehouseStore((s) => s.receipts);
+  const { data } = useWarehouseData();
+
+  const materials = useMemo(() => data?.materials ?? [], [data?.materials]);
+  const receipts = useMemo(() => data?.receipts ?? [], [data?.receipts]);
 
   const needle = q.trim().toLowerCase();
 

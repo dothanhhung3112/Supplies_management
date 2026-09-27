@@ -9,15 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatNumber, formatQty, formatVnd } from "@/lib/warehouse/format";
 import { stockMap, stockStatus, type StockStatus } from "@/lib/warehouse/selectors";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData } from "@/lib/warehouse/queries";
+import { EMPTY_CATEGORIES, EMPTY_MATERIALS, EMPTY_MOVEMENTS } from "@/lib/warehouse/empty";
 import type { Material } from "@/lib/warehouse/types";
 
 export const Route = createFileRoute("/inventory")({ component: InventoryPage });
 
 function InventoryPage() {
-  const categories = useWarehouseStore((s) => s.categories);
-  const materials = useWarehouseStore((s) => s.materials);
-  const movements = useWarehouseStore((s) => s.movements);
+  const { data } = useWarehouseData();
+  const categories = data?.categories ?? EMPTY_CATEGORIES;
+  const materials = data?.materials ?? EMPTY_MATERIALS;
+  const movements = data?.movements ?? EMPTY_MOVEMENTS;
   const stocks = useMemo(() => stockMap(movements), [movements]);
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("all");

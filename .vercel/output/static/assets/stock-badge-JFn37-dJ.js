@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-D3jfb0Ew.js";import{t}from"./badge-BG-U-X9T.js";import{o as n,s as r}from"./selectors-BqhXWJ4g.js";var i=e();function a({qty:e,minStock:a}){let o=n(e,a);return(0,i.jsx)(t,{variant:o===`ok`?`success`:o===`low`?`warning`:`danger`,children:r(o)})}export{a as t};

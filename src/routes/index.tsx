@@ -22,7 +22,7 @@ import {
   lowStockMaterials,
   receiptTotal,
 } from "@/lib/warehouse/selectors";
-import { useWarehouseStore } from "@/lib/warehouse/store";
+import { useWarehouseData } from "@/lib/warehouse/queries";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -34,18 +34,18 @@ function monthLabel(key: string) {
 }
 
 function Home() {
-  const categories = useWarehouseStore((s) => s.categories);
-  const materials = useWarehouseStore((s) => s.materials);
-  const receipts = useWarehouseStore((s) => s.receipts);
-  const movements = useWarehouseStore((s) => s.movements);
-
-  const data = { categories, materials, receipts, movements };
-  const low = lowStockMaterials(data);
+  const { data } = useWarehouseData();
+  const categories = data?.categories ?? [];
+  const materials = data?.materials ?? [];
+  const receipts = data?.receipts ?? [];
+  const movements = data?.movements ?? [];
+  const warehouseData = { categories, materials, receipts, movements };
+  const low = lowStockMaterials(warehouseData);
   const value = inventoryValue(materials, movements);
   const thisMonth = new Date().toISOString().slice(0, 7);
   const postedThisMonth = receipts.filter((r) => r.status === "posted" && r.date.startsWith(thisMonth));
   const drafts = receipts.filter((r) => r.status === "draft");
-  const chart = inboundByMonth(data, 6).map((row) => ({
+  const chart = inboundByMonth(warehouseData, 6).map((row) => ({
     ...row,
     label: monthLabel(row.month),
   }));

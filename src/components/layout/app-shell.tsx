@@ -14,8 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
-import { useWarehouseStore } from "@/lib/warehouse/store";
-import { SearchCommand, useSearchOpen } from "@/components/search-command";
+import { useWarehouseData } from "@/lib/warehouse/queries";
+import { SearchCommand } from "@/components/search-command";
+import { useSearchOpen } from "@/lib/search-context";
 
 const NAV = [
   { to: "/", label: "Tổng quan", icon: LayoutDashboard },
@@ -149,18 +150,11 @@ function ShellSkeleton() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [ready, setReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { setOpen: setSearchOpen } = useSearchOpen();
+  const { isPending } = useWarehouseData();
 
-  useEffect(() => {
-    const unsub = useWarehouseStore.persist.onFinishHydration(() => setReady(true));
-    void useWarehouseStore.persist.rehydrate();
-    if (useWarehouseStore.persist.hasHydrated()) setReady(true);
-    return unsub;
-  }, []);
-
-  if (!ready) {
+  if (isPending) {
     return (
       <>
         <ShellSkeleton />
