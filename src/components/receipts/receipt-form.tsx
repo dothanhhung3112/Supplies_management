@@ -98,25 +98,31 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
   }
 
   function onPost() {
-    if (!validate()) return;
-    saveReceipt.mutate(
-      { input: payload(), existingId: receipt?.id },
-      {
-        onSuccess: (id) => {
-          postReceipt.mutate(id, {
-            onSuccess: (err) => {
-              if (err) {
-                toast.error(err);
-                return;
-              }
-              toast.success("Đã ghi sổ phiếu nhập. Tồn kho đã được cập nhật.");
-              void navigate({ to: "/receipts/$id", params: { id } });
-            },
-          });
-        },
+  if (!validate()) return;
+  saveReceipt.mutate(
+    { input: payload(), existingId: receipt?.id },
+    {
+      onError: (e) => {
+        toast.error(e instanceof Error ? e.message : "Lưu phiếu thất bại.");
       },
-    );
-  }
+      onSuccess: (id) => {
+        postReceipt.mutate(id, {
+          onError: (e) => {
+            toast.error(e instanceof Error ? e.message : "Ghi sổ thất bại.");
+          },
+          onSuccess: (err) => {
+            if (err) {
+              toast.error(err);
+              return;
+            }
+            toast.success("Đã ghi sổ nhập kho. Tồn kho đã được cập nhật.");
+            void navigate({ to: "/receipts/$id", params: { id } });
+          },
+        });
+      },
+    },
+  );
+}
 
   return (
     <div className="space-y-6">
