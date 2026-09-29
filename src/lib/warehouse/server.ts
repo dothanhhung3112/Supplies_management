@@ -45,7 +45,7 @@ const categoryInputSchema = z.object({
   description: z.string(),
 });
 
-// ── Row types dùng nội bộ cho query (đặt tên riêng, tránh generic lồng nhau) ─
+// ── Row types dùng nội bộ cho query ──────────────────────────────────────
 
 type ReceiptRow = {
   id: string;
@@ -72,35 +72,41 @@ type CodeRow = { code: string };
 type StatusRow = { status: string };
 type LastPriceRow = { lastUnitPrice: number };
 
-// ── Load toàn bộ dữ liệu ──────────────────────────────────────────────────
+// ── Load toàn bộ dữ liệu (5 query chạy song song thay vì tuần tự) ────────
 
 export const loadWarehouseData = createServerFn({ method: "GET" }).handler(
   async (): Promise<WarehouseData> => {
     const sql = await getSql();
 
-    const categories = await sql.query<Category>(
-      `select id, name, description from warehouse_categories`,
-    );
-
-    const materials = await sql.query<Material>(
-      `select id, sku, name, category_id as "categoryId", unit,
-              min_stock as "minStock", location, note,
-              last_unit_price as "lastUnitPrice", created_at as "createdAt"
-       from warehouse_materials`,
-    );
-
-    const receiptRows = await sql.query<ReceiptRow>(
-      `select id, code, date::text, supplier, warehouse, note, status,
-              created_at as "createdAt", posted_at as "postedAt"
-       from warehouse_receipts
-       order by date desc, created_at desc`,
-    );
-
-    const lineRows = await sql.query<ReceiptLineRow>(
-      `select id, receipt_id as "receiptId", material_id as "materialId",
-              quantity, unit_price as "unitPrice"
-       from warehouse_receipt_lines`,
-    );
+    const [categories, materials, receiptRows, lineRows, movements] = await Promise.all([
+      sql.query<Category>(
+        `select id, name, description from warehouse_categories`,
+      ),
+      sql.query<Material>(
+        `select id, sku, name, category_id as "categoryId", unit,
+                min_stock as "minStock", location, note,
+                last_unit_price as "lastUnitPrice", created_at as "createdAt"
+         from warehouse_materials`,
+      ),
+      sql.query<ReceiptRow>(
+        `select id, code, date::text, supplier, warehouse, note, status,
+                created_at as "createdAt", posted_at as "postedAt"
+         from warehouse_receipts
+         order by date desc, created_at desc`,
+      ),
+      sql.query<ReceiptLineRow>(
+        `select id, receipt_id as "receiptId", material_id as "materialId",
+                quantity, unit_price as "unitPrice"
+         from warehouse_receipt_lines`,
+      ),
+      sql.query<Movement>(
+        `select id, material_id as "materialId", type, quantity,
+                unit_price as "unitPrice", receipt_id as "receiptId",
+                note, created_at as "createdAt"
+         from warehouse_movements
+         order by created_at desc`,
+      ),
+    ]);
 
     const linesByReceipt = new Map<string, ReceiptLine[]>();
     for (const line of lineRows) {
@@ -126,14 +132,6 @@ export const loadWarehouseData = createServerFn({ method: "GET" }).handler(
       postedAt: r.postedAt,
       lines: linesByReceipt.get(r.id) ?? [],
     }));
-
-    const movements = await sql.query<Movement>(
-      `select id, material_id as "materialId", type, quantity,
-              unit_price as "unitPrice", receipt_id as "receiptId",
-              note, created_at as "createdAt"
-       from warehouse_movements
-       order by created_at desc`,
-    );
 
     return { categories, materials, receipts, movements };
   },
@@ -221,18 +219,19 @@ export const deleteMaterialFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<string | null> => {
     const sql = await getSql();
 
-    const movementCount = await sql.query<CountRow>(
-      `select count(*)::int as count from warehouse_movements where material_id = $1`,
-      [data.id],
-    );
+    const [movementCount, lineCount] = await Promise.all([
+      sql.query<CountRow>(
+        `select count(*)::int as count from warehouse_movements where material_id = $1`,
+        [data.id],
+      ),
+      sql.query<CountRow>(
+        `select count(*)::int as count from warehouse_receipt_lines where material_id = $1`,
+        [data.id],
+      ),
+    ]);
     if ((movementCount[0]?.count ?? 0) > 0) {
       return "Không thể xóa vật tư đã phát sinh tồn kho.";
     }
-
-    const lineCount = await sql.query<CountRow>(
-      `select count(*)::int as count from warehouse_receipt_lines where material_id = $1`,
-      [data.id],
-    );
     if ((lineCount[0]?.count ?? 0) > 0) {
       return "Không thể xóa vật tư đang nằm trên phiếu nhập.";
     }
@@ -259,6 +258,20 @@ async function nextReceiptCode(date: string): Promise<string> {
   return `${prefix}${String(max + 1).padStart(4, "0")}`;
 }
 
+function buildLineInsert(receiptId: string, lines: ReceiptLine[]) {
+  const values = lines
+    .map((_, i) => `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`)
+    .join(", ");
+  const params = lines.flatMap((line) => [
+    uid("ln"),
+    receiptId,
+    line.materialId,
+    line.quantity,
+    line.unitPrice,
+  ]);
+  return { values, params };
+}
+
 export const saveReceiptFn = createServerFn({ method: "POST" })
   .validator(z.object({ input: receiptDraftSchema, existingId: z.string().optional() }))
   .handler(async ({ data }): Promise<string> => {
@@ -272,16 +285,21 @@ export const saveReceiptFn = createServerFn({ method: "POST" })
       );
       if (existing.length === 0 || existing[0].status === "posted") return existingId;
 
-      await sql.query(
-        `update warehouse_receipts set date = $1, supplier = $2, warehouse = $3, note = $4 where id = $5`,
-        [input.date, input.supplier, input.warehouse, input.note, existingId],
-      );
-      await sql.query(`delete from warehouse_receipt_lines where receipt_id = $1`, [existingId]);
-      for (const line of input.lines) {
+      // Cập nhật phần meta của phiếu và xóa các dòng cũ song song — cả hai
+      // đều không phụ thuộc lẫn nhau, chỉ phải xong trước khi chèn dòng mới.
+      await Promise.all([
+        sql.query(
+          `update warehouse_receipts set date = $1, supplier = $2, warehouse = $3, note = $4 where id = $5`,
+          [input.date, input.supplier, input.warehouse, input.note, existingId],
+        ),
+        sql.query(`delete from warehouse_receipt_lines where receipt_id = $1`, [existingId]),
+      ]);
+
+      if (input.lines.length > 0) {
+        const { values, params } = buildLineInsert(existingId, input.lines);
         await sql.query(
-          `insert into warehouse_receipt_lines (id, receipt_id, material_id, quantity, unit_price)
-           values ($1, $2, $3, $4, $5)`,
-          [uid("ln"), existingId, line.materialId, line.quantity, line.unitPrice],
+          `insert into warehouse_receipt_lines (id, receipt_id, material_id, quantity, unit_price) values ${values}`,
+          params,
         );
       }
       return existingId;
@@ -294,11 +312,11 @@ export const saveReceiptFn = createServerFn({ method: "POST" })
        values ($1, $2, $3, $4, $5, $6, 'draft')`,
       [id, code, input.date, input.supplier, input.warehouse, input.note],
     );
-    for (const line of input.lines) {
+    if (input.lines.length > 0) {
+      const { values, params } = buildLineInsert(id, input.lines);
       await sql.query(
-        `insert into warehouse_receipt_lines (id, receipt_id, material_id, quantity, unit_price)
-         values ($1, $2, $3, $4, $5)`,
-        [uid("ln"), id, line.materialId, line.quantity, line.unitPrice],
+        `insert into warehouse_receipt_lines (id, receipt_id, material_id, quantity, unit_price) values ${values}`,
+        params,
       );
     }
     return id;
@@ -309,41 +327,69 @@ export const postReceiptFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<string | null> => {
     const sql = await getSql();
 
-    const receiptRows = await sql.query<{ id: string; code: string; status: string; supplier: string }>(
-      `select id, code, status, supplier from warehouse_receipts where id = $1`,
-      [data.id],
-    );
+    const [receiptRows, lines] = await Promise.all([
+      sql.query<{ id: string; code: string; status: string; supplier: string }>(
+        `select id, code, status, supplier from warehouse_receipts where id = $1`,
+        [data.id],
+      ),
+      sql.query<ReceiptLine>(
+        `select id, material_id as "materialId", quantity, unit_price as "unitPrice"
+         from warehouse_receipt_lines where receipt_id = $1`,
+        [data.id],
+      ),
+    ]);
     const receipt = receiptRows[0];
     if (!receipt) return "Không tìm thấy phiếu.";
     if (receipt.status === "posted") return "Phiếu đã ghi sổ.";
     if (!receipt.supplier.trim()) return "Nhập nhà cung cấp trước khi ghi sổ.";
-
-    const lines = await sql.query<ReceiptLine>(
-      `select id, material_id as "materialId", quantity, unit_price as "unitPrice"
-       from warehouse_receipt_lines where receipt_id = $1`,
-      [data.id],
-    );
     if (lines.length === 0) return "Phiếu chưa có dòng vật tư.";
     if (lines.some((l) => !l.materialId || l.quantity <= 0)) {
       return "Mỗi dòng cần chọn vật tư và số lượng lớn hơn 0.";
     }
 
-    await sql.query(
-      `update warehouse_receipts set status = 'posted', posted_at = now() where id = $1`,
-      [data.id],
-    );
+    // Ghi movement cho tất cả các dòng bằng 1 câu insert nhiều dòng.
+    const movementValues = lines
+      .map((_, i) => `($${i * 6 + 1}, $${i * 6 + 2}, 'in', $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`)
+      .join(", ");
+    const movementParams = lines.flatMap((line) => [
+      uid("mv"),
+      line.materialId,
+      line.quantity,
+      line.unitPrice,
+      data.id,
+      `Nhập kho ${receipt.code}`,
+    ]);
 
-    for (const line of lines) {
-      await sql.query(
+    // Cập nhật giá gần nhất cho từng vật tư bằng 1 câu update nhiều dòng
+    // (trùng vật tư trong cùng phiếu thì dòng sau đè giá dòng trước, giống
+    // hành vi vòng lặp cũ).
+    const priceByMaterial = new Map<string, number>();
+    for (const line of lines) priceByMaterial.set(line.materialId, line.unitPrice);
+    const priceEntries = [...priceByMaterial.entries()];
+    const priceValues = priceEntries
+      .map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2}::numeric)`)
+      .join(", ");
+    const priceParams = priceEntries.flatMap(([id, price]) => [id, price]);
+
+    // 3 câu ghi độc lập nhau (bảng khác nhau, không phụ thuộc thứ tự) —
+    // chạy song song thay vì tuần tự.
+    await Promise.all([
+      sql.query(
+        `update warehouse_receipts set status = 'posted', posted_at = now() where id = $1`,
+        [data.id],
+      ),
+      sql.query(
         `insert into warehouse_movements (id, material_id, type, quantity, unit_price, receipt_id, note)
-         values ($1, $2, 'in', $3, $4, $5, $6)`,
-        [uid("mv"), line.materialId, line.quantity, line.unitPrice, data.id, `Nhập kho ${receipt.code}`],
-      );
-      await sql.query(
-        `update warehouse_materials set last_unit_price = $1 where id = $2`,
-        [line.unitPrice, line.materialId],
-      );
-    }
+         values ${movementValues}`,
+        movementParams,
+      ),
+      sql.query(
+        `update warehouse_materials as m set last_unit_price = v.price
+         from (values ${priceValues}) as v(id, price)
+         where m.id = v.id`,
+        priceParams,
+      ),
+    ]);
 
     return null;
   });

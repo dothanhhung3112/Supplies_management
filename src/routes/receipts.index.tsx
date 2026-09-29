@@ -21,12 +21,13 @@ import { formatDate, formatVnd } from "@/lib/warehouse/format";
 import { receiptTotal } from "@/lib/warehouse/selectors";
 import { useWarehouseData, useDeleteReceipt } from "@/lib/warehouse/queries";
 import type { Receipt } from "@/lib/warehouse/types";
+import { EMPTY_RECEIPTS } from "@/lib/warehouse/empty";
 
 export const Route = createFileRoute("/receipts/")({ component: ReceiptsPage });
 
 function ReceiptsPage() {
   const { data } = useWarehouseData();
-  const receipts = data?.receipts ?? [];
+  const receipts = data?.receipts ?? EMPTY_RECEIPTS;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | "draft" | "posted">("all");
   const deleteReceipt = useDeleteReceipt();

@@ -14,6 +14,7 @@ import { WAREHOUSES } from "@/lib/warehouse/seed";
 import { receiptTotal, uniqueSuppliers } from "@/lib/warehouse/selectors";
 import { useWarehouseData, useSaveReceipt, usePostReceipt } from "@/lib/warehouse/queries";
 import type { Receipt, ReceiptLine } from "@/lib/warehouse/types";
+import { EMPTY_CATEGORIES, EMPTY_MATERIALS, EMPTY_RECEIPTS } from "@/lib/warehouse/empty";
 
 function emptyLine(): ReceiptLine {
   return { id: uid("ln"), materialId: "", quantity: 1, unitPrice: 0 };
@@ -22,9 +23,9 @@ function emptyLine(): ReceiptLine {
 export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
   const navigate = useNavigate();
   const { data } = useWarehouseData();
-  const categories = data?.categories ?? [];
-  const materials = data?.materials ?? [];
-  const receipts = data?.receipts ?? [];
+  const categories = data?.categories ?? EMPTY_CATEGORIES;
+  const materials = data?.materials ?? EMPTY_MATERIALS;
+  const receipts = data?.receipts ?? EMPTY_RECEIPTS;
   const saveReceipt = useSaveReceipt();
   const postReceipt = usePostReceipt();
 

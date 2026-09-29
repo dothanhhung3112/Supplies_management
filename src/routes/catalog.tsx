@@ -27,14 +27,15 @@ import {
 import { useWarehouseData, useDeleteMaterial, useDeleteCategory } from "@/lib/warehouse/queries";
 import { formatNumber, formatVnd } from "@/lib/warehouse/format";
 import type { Category, Material } from "@/lib/warehouse/types";
+import { EMPTY_CATEGORIES, EMPTY_MATERIALS } from "@/lib/warehouse/empty";
 
 export const Route = createFileRoute("/catalog")({ component: CatalogPage });
 
 function CatalogPage() {
   const [tab, setTab] = useState<"materials" | "categories">("materials");
   const { data } = useWarehouseData();
-  const categories = data?.categories ?? [];
-  const materials = data?.materials ?? [];
+const categories = data?.categories ?? EMPTY_CATEGORIES;
+const materials = data?.materials ?? EMPTY_MATERIALS;
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [matOpen, setMatOpen] = useState(false);
