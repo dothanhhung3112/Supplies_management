@@ -1,3 +1,4 @@
+import { EMPTY_RECEIPTS } from "@/lib/warehouse/empty";
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PackagePlus, Search, Trash2 } from "lucide-react";
@@ -21,13 +22,12 @@ import { formatDate, formatVnd } from "@/lib/warehouse/format";
 import { receiptTotal } from "@/lib/warehouse/selectors";
 import { useWarehouseData, useDeleteReceipt } from "@/lib/warehouse/queries";
 import type { Receipt } from "@/lib/warehouse/types";
-import { EMPTY_RECEIPTS } from "@/lib/warehouse/empty";
 
 export const Route = createFileRoute("/receipts/")({ component: ReceiptsPage });
 
 function ReceiptsPage() {
   const { data } = useWarehouseData();
-  const receipts = data?.receipts ?? EMPTY_RECEIPTS;
+   const receipts = data?.receipts ?? EMPTY_RECEIPTS;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | "draft" | "posted">("all");
   const deleteReceipt = useDeleteReceipt();
@@ -49,7 +49,7 @@ function ReceiptsPage() {
     deleteReceipt.mutate(deleting.id, {
       onSuccess: (err) => {
         if (err) toast.error(err);
-        else toast.success("Đã xóa phiếu nháp.");
+        else toast.success("Đã xóa phiếu.");
         setDeleting(null);
       },
       onError: () => {
@@ -64,7 +64,7 @@ function ReceiptsPage() {
       <PageHeader
         eyebrow="Nhập kho"
         title="Phiếu nhập kho"
-        description="Tạo phiếu, lưu nháp rồi ghi sổ để cộng tồn. Phiếu đã ghi sổ không sửa được."
+        description="Tạo phiếu, lưu nháp rồi ghi sổ để cộng tồn. Xóa phiếu đã ghi sổ sẽ hoàn tác tồn kho liên quan."
         actions={
           <Button asChild>
             <Link to="/receipts/new">
@@ -138,18 +138,16 @@ function ReceiptsPage() {
                   </p>
                   <p className="mt-1 font-mono text-sm tabular-nums">{formatVnd(receiptTotal(r.lines))}</p>
                 </Link>
-                {r.status === "draft" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 text-destructive"
-                    onClick={() => setDeleting(r)}
-                  >
-                    <Trash2 className="size-4" />
-                    Xóa nháp
-                  </Button>
-                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 text-destructive"
+                  onClick={() => setDeleting(r)}
+                >
+                  <Trash2 className="size-4" />
+                  {r.status === "posted" ? "Xóa phiếu" : "Xóa nháp"}
+                </Button>
               </article>
             ))}
           </div>
@@ -187,17 +185,15 @@ function ReceiptsPage() {
                       {formatVnd(receiptTotal(r.lines))}
                     </td>
                     <td className="px-3 py-3">
-                      {r.status === "draft" ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label="Xóa nháp"
-                          onClick={() => setDeleting(r)}
-                        >
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Xóa phiếu"
+                        onClick={() => setDeleting(r)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -210,9 +206,13 @@ function ReceiptsPage() {
       <AlertDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xóa phiếu nháp?</AlertDialogTitle>
+            <AlertDialogTitle>Xóa phiếu nhập?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleting ? `Phiếu ${deleting.code} sẽ bị xóa. Thao tác này không hoàn tác được.` : ""}
+              {deleting
+                ? deleting.status === "posted"
+                  ? `Phiếu ${deleting.code} đã ghi sổ — xóa sẽ hoàn tác tồn kho liên quan đến phiếu này. Thao tác này không hoàn tác được.`
+                  : `Phiếu ${deleting.code} sẽ bị xóa. Thao tác này không hoàn tác được.`
+                : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

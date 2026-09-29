@@ -8,6 +8,7 @@ import type {
   Movement,
   Receipt,
   ReceiptLine,
+  Warehouse,
   WarehouseData,
 } from "./types";
 
@@ -45,6 +46,11 @@ const categoryInputSchema = z.object({
   description: z.string(),
 });
 
+const warehouseInputSchema = z.object({
+  name: z.string(),
+  address: z.string(),
+});
+
 // ── Row types dùng nội bộ cho query ──────────────────────────────────────
 
 type ReceiptRow = {
@@ -78,35 +84,36 @@ export const loadWarehouseData = createServerFn({ method: "GET" }).handler(
   async (): Promise<WarehouseData> => {
     const sql = await getSql();
 
-    const [categories, materials, receiptRows, lineRows, movements] = await Promise.all([
-      sql.query<Category>(
-        `select id, name, description from warehouse_categories`,
-      ),
-      sql.query<Material>(
-        `select id, sku, name, category_id as "categoryId", unit,
-                min_stock as "minStock", location, note,
-                last_unit_price as "lastUnitPrice", created_at as "createdAt"
-         from warehouse_materials`,
-      ),
-      sql.query<ReceiptRow>(
-        `select id, code, date::text, supplier, warehouse, note, status,
-                created_at as "createdAt", posted_at as "postedAt"
-         from warehouse_receipts
-         order by date desc, created_at desc`,
-      ),
-      sql.query<ReceiptLineRow>(
-        `select id, receipt_id as "receiptId", material_id as "materialId",
-                quantity, unit_price as "unitPrice"
-         from warehouse_receipt_lines`,
-      ),
-      sql.query<Movement>(
-        `select id, material_id as "materialId", type, quantity,
-                unit_price as "unitPrice", receipt_id as "receiptId",
-                note, created_at as "createdAt"
-         from warehouse_movements
-         order by created_at desc`,
-      ),
-    ]);
+    const [categories, materials, receiptRows, lineRows, movements, warehouses] = await Promise.all([
+  sql.query<Category>(`select id, name, description from warehouse_categories`),
+  sql.query<Material>(
+    `select id, sku, name, category_id as "categoryId", unit,
+            min_stock as "minStock", location, note,
+            last_unit_price as "lastUnitPrice", created_at as "createdAt"
+     from warehouse_materials`,
+  ),
+  sql.query<ReceiptRow>(
+    `select id, code, date::text, supplier, warehouse, note, status,
+            created_at as "createdAt", posted_at as "postedAt"
+     from warehouse_receipts
+     order by date desc, created_at desc`,
+  ),
+  sql.query<ReceiptLineRow>(
+    `select id, receipt_id as "receiptId", material_id as "materialId",
+            quantity, unit_price as "unitPrice"
+     from warehouse_receipt_lines`,
+  ),
+  sql.query<Movement>(
+    `select id, material_id as "materialId", type, quantity,
+            unit_price as "unitPrice", receipt_id as "receiptId",
+            note, created_at as "createdAt"
+     from warehouse_movements
+     order by created_at desc`,
+  ),
+  sql.query<Warehouse>(
+    `select id, name, address from warehouse_warehouses order by name`,
+  ),
+]);
 
     const linesByReceipt = new Map<string, ReceiptLine[]>();
     for (const line of lineRows) {
@@ -133,7 +140,7 @@ export const loadWarehouseData = createServerFn({ method: "GET" }).handler(
       lines: linesByReceipt.get(r.id) ?? [],
     }));
 
-    return { categories, materials, receipts, movements };
+    return { categories, materials, receipts, movements, warehouses };
   },
 );
 
@@ -173,6 +180,51 @@ export const deleteCategoryFn = createServerFn({ method: "POST" })
     await sql.query(`delete from warehouse_categories where id = $1`, [data.id]);
     return null;
   });
+
+
+  // ── Warehouse ─────────────────────────────────────────────────────────────
+
+export const addWarehouseFn = createServerFn({ method: "POST" })
+  .validator(warehouseInputSchema)
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    const id = uid("wh");
+    await sql.query(
+      `insert into warehouse_warehouses (id, name, address) values ($1, $2, $3)`,
+      [id, data.name, data.address],
+    );
+    return id;
+  });
+
+export const updateWarehouseFn = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string(), input: warehouseInputSchema }))
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    await sql.query(
+      `update warehouse_warehouses set name = $1, address = $2 where id = $3`,
+      [data.input.name, data.input.address, data.id],
+    );
+  });
+
+export const deleteWarehouseFn = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string() }))
+  .handler(async ({ data }): Promise<string | null> => {
+    const sql = await getSql();
+    const rows = await sql.query<{ name: string }>(
+      `select name from warehouse_warehouses where id = $1`,
+      [data.id],
+    );
+    if (rows.length === 0) return "Không tìm thấy kho.";
+    const used = await sql.query<CountRow>(
+      `select count(*)::int as count from warehouse_receipts where warehouse = $1`,
+      [rows[0].name],
+    );
+    if ((used[0]?.count ?? 0) > 0) return "Không thể xóa kho đang có phiếu nhập.";
+    await sql.query(`delete from warehouse_warehouses where id = $1`, [data.id]);
+    return null;
+  });
+
+  
 
 // ── Material ──────────────────────────────────────────────────────────────
 
@@ -403,7 +455,12 @@ export const deleteReceiptFn = createServerFn({ method: "POST" })
       [data.id],
     );
     if (rows.length === 0) return "Không tìm thấy phiếu.";
-    if (rows[0].status === "posted") return "Không thể xóa phiếu đã ghi sổ.";
+    if (rows[0].status === "posted") {
+      // Xóa bút toán tồn kho phát sinh từ phiếu này trước — điều này tự
+      // hoàn tác ảnh hưởng lên tồn kho, vì stockOf() cộng dồn movements.
+      // Dòng phiếu (warehouse_receipt_lines) tự xóa theo cascade FK.
+      await sql.query(`delete from warehouse_movements where receipt_id = $1`, [data.id]);
+    }
     await sql.query(`delete from warehouse_receipts where id = $1`, [data.id]);
     return null;
   });

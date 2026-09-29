@@ -4,6 +4,12 @@ export type Category = {
   description: string;
 };
 
+export type Warehouse = {
+  id: string;
+  name: string;
+  address: string;
+};
+
 export type Material = {
   id: string;
   sku: string;
@@ -56,5 +62,6 @@ export type WarehouseData = {
   categories: Category[];
   materials: Material[];
   receipts: Receipt[];
-  movements: Movement[];
+  movements?: Movement[];
+  warehouses?: Warehouse[];
 };

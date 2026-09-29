@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -10,11 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MaterialPicker } from "@/components/material-picker";
 import { uid } from "@/lib/utils";
 import { formatNumber, formatVnd, todayIsoDate } from "@/lib/warehouse/format";
-import { WAREHOUSES } from "@/lib/warehouse/seed";
 import { receiptTotal, uniqueSuppliers } from "@/lib/warehouse/selectors";
 import { useWarehouseData, useSaveReceipt, usePostReceipt } from "@/lib/warehouse/queries";
 import type { Receipt, ReceiptLine } from "@/lib/warehouse/types";
-import { EMPTY_CATEGORIES, EMPTY_MATERIALS, EMPTY_RECEIPTS } from "@/lib/warehouse/empty";
+import {
+  EMPTY_CATEGORIES,
+  EMPTY_MATERIALS,
+  EMPTY_RECEIPTS,
+  EMPTY_WAREHOUSES,
+} from "@/lib/warehouse/empty";
 
 function emptyLine(): ReceiptLine {
   return { id: uid("ln"), materialId: "", quantity: 1, unitPrice: 0 };
@@ -26,21 +30,29 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
   const categories = data?.categories ?? EMPTY_CATEGORIES;
   const materials = data?.materials ?? EMPTY_MATERIALS;
   const receipts = data?.receipts ?? EMPTY_RECEIPTS;
+  const warehouses = data?.warehouses ?? EMPTY_WAREHOUSES;
+
   const saveReceipt = useSaveReceipt();
   const postReceipt = usePostReceipt();
 
   const posted = receipt?.status === "posted";
   const [date, setDate] = useState(receipt?.date ?? todayIsoDate());
   const [supplier, setSupplier] = useState(receipt?.supplier ?? "");
-  const [warehouse, setWarehouse] = useState(receipt?.warehouse ?? WAREHOUSES[0]);
+  const [warehouse, setWarehouse] = useState(receipt?.warehouse ?? "");
   const [note, setNote] = useState(receipt?.note ?? "");
   const [lines, setLines] = useState<ReceiptLine[]>(
     receipt?.lines.length ? receipt.lines : [emptyLine()],
   );
 
+  useEffect(() => {
+    if (!receipt && !warehouse && warehouses.length > 0) {
+      setWarehouse(warehouses[0].name);
+    }
+  }, [warehouses, receipt, warehouse]);
+
   const suppliers = useMemo(
-    () => uniqueSuppliers({ categories, materials, receipts, movements: [] }),
-    [categories, materials, receipts],
+    () => uniqueSuppliers({ categories, materials, receipts, movements: [], warehouses }),
+    [categories, materials, receipts, warehouses],
   );
   const total = receiptTotal(lines);
   const materialById = useMemo(() => new Map(materials.map((m) => [m.id, m])), [materials]);
@@ -99,31 +111,31 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
   }
 
   function onPost() {
-  if (!validate()) return;
-  saveReceipt.mutate(
-    { input: payload(), existingId: receipt?.id },
-    {
-      onError: (e) => {
-        toast.error(e instanceof Error ? e.message : "Lưu phiếu thất bại.");
+    if (!validate()) return;
+    saveReceipt.mutate(
+      { input: payload(), existingId: receipt?.id },
+      {
+        onError: (e) => {
+          toast.error(e instanceof Error ? e.message : "Lưu phiếu thất bại.");
+        },
+        onSuccess: (id) => {
+          postReceipt.mutate(id, {
+            onError: (e) => {
+              toast.error(e instanceof Error ? e.message : "Ghi sổ thất bại.");
+            },
+            onSuccess: (err) => {
+              if (err) {
+                toast.error(err);
+                return;
+              }
+              toast.success("Đã ghi sổ nhập kho. Tồn kho đã được cập nhật.");
+              void navigate({ to: "/receipts/$id", params: { id } });
+            },
+          });
+        },
       },
-      onSuccess: (id) => {
-        postReceipt.mutate(id, {
-          onError: (e) => {
-            toast.error(e instanceof Error ? e.message : "Ghi sổ thất bại.");
-          },
-          onSuccess: (err) => {
-            if (err) {
-              toast.error(err);
-              return;
-            }
-            toast.success("Đã ghi sổ nhập kho. Tồn kho đã được cập nhật.");
-            void navigate({ to: "/receipts/$id", params: { id } });
-          },
-        });
-      },
-    },
-  );
-}
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -143,12 +155,12 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
             <Label htmlFor="warehouse">Kho nhận</Label>
             <Select value={warehouse} onValueChange={setWarehouse} disabled={posted}>
               <SelectTrigger id="warehouse">
-                <SelectValue />
+                <SelectValue placeholder="Chọn kho" />
               </SelectTrigger>
               <SelectContent>
-                {WAREHOUSES.map((w) => (
-                  <SelectItem key={w} value={w}>
-                    {w}
+                {warehouses.map((w) => (
+                  <SelectItem key={w.id} value={w.name}>
+                    {w.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -187,7 +199,12 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="font-semibold">Dòng vật tư</h2>
           {posted ? null : (
-            <Button type="button" variant="outline" size="sm" onClick={() => setLines((p) => [...p, emptyLine()])}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setLines((p) => [...p, emptyLine()])}
+            >
               <Plus className="size-4" />
               Thêm dòng
             </Button>
@@ -254,7 +271,9 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
                           size="icon-sm"
                           aria-label="Xóa dòng"
                           onClick={() =>
-                            setLines((p) => (p.length === 1 ? [emptyLine()] : p.filter((l) => l.id !== line.id)))
+                            setLines((p) =>
+                              p.length === 1 ? [emptyLine()] : p.filter((l) => l.id !== line.id)
+                            )
                           }
                         >
                           <Trash2 className="size-4" />
@@ -282,7 +301,9 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
                       size="icon-sm"
                       aria-label="Xóa dòng"
                       onClick={() =>
-                        setLines((p) => (p.length === 1 ? [emptyLine()] : p.filter((l) => l.id !== line.id)))
+                        setLines((p) =>
+                          p.length === 1 ? [emptyLine()] : p.filter((l) => l.id !== line.id)
+                        )
                       }
                     >
                       <Trash2 className="size-4" />
@@ -336,7 +357,9 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
         </div>
 
         <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
-          <p className="text-sm text-muted-foreground">{lines.filter((l) => l.materialId).length} dòng</p>
+          <p className="text-sm text-muted-foreground">
+            {lines.filter((l) => l.materialId).length} dòng
+          </p>
           <p className="text-lg font-semibold tabular-nums">{formatVnd(total)}</p>
         </div>
       </section>

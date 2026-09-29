@@ -4,6 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CategoryDialog } from "@/components/catalog/category-dialog";
 import { MaterialDialog } from "@/components/catalog/material-dialog";
+import { WarehouseDialog } from "@/components/catalog/warehouse-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -24,28 +25,43 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useWarehouseData, useDeleteMaterial, useDeleteCategory } from "@/lib/warehouse/queries";
+import {
+  useWarehouseData,
+  useDeleteMaterial,
+  useDeleteCategory,
+  useDeleteWarehouse,
+} from "@/lib/warehouse/queries";
 import { formatNumber, formatVnd } from "@/lib/warehouse/format";
-import type { Category, Material } from "@/lib/warehouse/types";
+import type { Category, Material, Warehouse } from "@/lib/warehouse/types";
 import { EMPTY_CATEGORIES, EMPTY_MATERIALS } from "@/lib/warehouse/empty";
 
 export const Route = createFileRoute("/catalog")({ component: CatalogPage });
 
 function CatalogPage() {
-  const [tab, setTab] = useState<"materials" | "categories">("materials");
+  const [tab, setTab] = useState<"materials" | "categories" | "warehouses">("materials");
   const { data } = useWarehouseData();
-const categories = data?.categories ?? EMPTY_CATEGORIES;
-const materials = data?.materials ?? EMPTY_MATERIALS;
+  const categories = data?.categories ?? EMPTY_CATEGORIES;
+  const materials = data?.materials ?? EMPTY_MATERIALS;
+  const warehouses = data?.warehouses ?? [];
+
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("all");
+
   const [matOpen, setMatOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
+  const [whOpen, setWhOpen] = useState(false);
+
   const [editingMat, setEditingMat] = useState<Material | null>(null);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [editingWh, setEditingWh] = useState<Warehouse | null>(null);
+
   const [deletingMat, setDeletingMat] = useState<Material | null>(null);
   const [deletingCat, setDeletingCat] = useState<Category | null>(null);
+  const [deletingWh, setDeletingWh] = useState<Warehouse | null>(null);
+
   const deleteMaterial = useDeleteMaterial();
   const deleteCategory = useDeleteCategory();
+  const deleteWarehouse = useDeleteWarehouse();
 
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? "—";
 
@@ -54,7 +70,9 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
     return materials.filter((m) => {
       if (catFilter !== "all" && m.categoryId !== catFilter) return false;
       if (!needle) return true;
-      return `${m.sku} ${m.name} ${m.location} ${catName(m.categoryId)}`.toLowerCase().includes(needle);
+      return `${m.sku} ${m.name} ${m.location} ${catName(m.categoryId)}`
+        .toLowerCase()
+        .includes(needle);
     });
   }, [materials, q, catFilter, categories]);
 
@@ -80,6 +98,21 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
     });
   }
 
+  function confirmDeleteWh() {
+    if (!deletingWh) return;
+    deleteWarehouse.mutate(deletingWh.id, {
+      onSuccess: (err) => {
+        if (err) toast.error(err);
+        else toast.success("Đã xóa kho.");
+        setDeletingWh(null);
+      },
+      onError: () => {
+        toast.error("Xóa kho thất bại.");
+        setDeletingWh(null);
+      },
+    });
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -97,7 +130,7 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
               <Plus className="size-4" />
               Thêm vật tư
             </Button>
-          ) : (
+          ) : tab === "categories" ? (
             <Button
               onClick={() => {
                 setEditingCat(null);
@@ -106,6 +139,16 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
             >
               <Plus className="size-4" />
               Thêm nhóm
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                setEditingWh(null);
+                setWhOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              Thêm kho
             </Button>
           )
         }
@@ -117,6 +160,9 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
         </TabButton>
         <TabButton active={tab === "categories"} onClick={() => setTab("categories")}>
           Nhóm hàng ({categories.length})
+        </TabButton>
+        <TabButton active={tab === "warehouses"} onClick={() => setTab("warehouses")}>
+          Kho ({warehouses.length})
         </TabButton>
       </div>
 
@@ -208,13 +254,20 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
                   </thead>
                   <tbody>
                     {filtered.map((m) => (
-                      <tr key={m.id} className="border-b border-border last:border-0 hover:bg-secondary/50">
+                      <tr
+                        key={m.id}
+                        className="border-b border-border last:border-0 hover:bg-secondary/50"
+                      >
                         <td className="px-5 py-3 font-mono text-xs">{m.sku}</td>
                         <td className="px-3 py-3 font-medium">{m.name}</td>
-                        <td className="px-3 py-3 text-muted-foreground">{catName(m.categoryId)}</td>
+                        <td className="px-3 py-3 text-muted-foreground">
+                          {catName(m.categoryId)}
+                        </td>
                         <td className="px-3 py-3">{m.unit}</td>
                         <td className="px-3 py-3 tabular-nums">{formatNumber(m.minStock)}</td>
-                        <td className="px-3 py-3 font-mono tabular-nums">{formatVnd(m.lastUnitPrice)}</td>
+                        <td className="px-3 py-3 font-mono tabular-nums">
+                          {formatVnd(m.lastUnitPrice)}
+                        </td>
                         <td className="px-3 py-3">{m.location || "—"}</td>
                         <td className="px-3 py-3">
                           <RowMenu
@@ -233,7 +286,7 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
             </>
           )}
         </>
-      ) : (
+      ) : tab === "categories" ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {categories.map((c) => {
             const count = materials.filter((m) => m.categoryId === c.id).length;
@@ -242,7 +295,9 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h2 className="font-semibold">{c.name}</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">{c.description || "Không có mô tả"}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {c.description || "Không có mô tả"}
+                    </p>
                   </div>
                   <RowMenu
                     onEdit={() => {
@@ -252,10 +307,34 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
                     onDelete={() => setDeletingCat(c)}
                   />
                 </div>
-                <p className="mt-4 text-sm tabular-nums text-muted-foreground">{count} mã vật tư</p>
+                <p className="mt-4 text-sm tabular-nums text-muted-foreground">
+                  {count} mã vật tư
+                </p>
               </article>
             );
           })}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {warehouses.map((w) => (
+            <article key={w.id} className="rounded-xl bg-card p-5 shadow-card">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h2 className="font-semibold">{w.name}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {w.address || "Không có địa chỉ"}
+                  </p>
+                </div>
+                <RowMenu
+                  onEdit={() => {
+                    setEditingWh(w);
+                    setWhOpen(true);
+                  }}
+                  onDelete={() => setDeletingWh(w)}
+                />
+              </div>
+            </article>
+          ))}
         </div>
       )}
 
@@ -274,6 +353,14 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
           if (!v) setEditingCat(null);
         }}
         category={editingCat}
+      />
+      <WarehouseDialog
+        open={whOpen}
+        onOpenChange={(v) => {
+          setWhOpen(v);
+          if (!v) setEditingWh(null);
+        }}
+        warehouse={editingWh}
       />
 
       <AlertDialog open={!!deletingMat} onOpenChange={(v) => !v && setDeletingMat(null)}>
@@ -306,6 +393,23 @@ const materials = data?.materials ?? EMPTY_MATERIALS;
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteCat}>Xóa</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deletingWh} onOpenChange={(v) => !v && setDeletingWh(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa kho?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingWh
+                ? `Xóa kho ${deletingWh.name}. Không xóa được nếu vẫn còn phiếu nhập dùng kho này.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteWh}>Xóa</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

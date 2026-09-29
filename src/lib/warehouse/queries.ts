@@ -11,6 +11,9 @@ import {
   postReceiptFn,
   deleteReceiptFn,
   adjustStockFn,
+  addWarehouseFn,
+  updateWarehouseFn,
+  deleteWarehouseFn,
 } from "./server";
 import type { ReceiptLine } from "./types";
 
@@ -137,6 +140,33 @@ export function useAdjustStock() {
   return useMutation({
     mutationFn: (vars: { materialId: string; quantity: number; note: string }) =>
       adjustStockFn({ data: vars }),
+    onSuccess: invalidate,
+  });
+}
+
+// ── Warehouse ─────────────────────────────────────────────────────────────
+
+export function useAddWarehouse() {
+  const invalidate = useInvalidateWarehouse();
+  return useMutation({
+    mutationFn: (input: { name: string; address: string }) => addWarehouseFn({ data: input }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateWarehouse() {
+  const invalidate = useInvalidateWarehouse();
+  return useMutation({
+    mutationFn: (vars: { id: string; input: { name: string; address: string } }) =>
+      updateWarehouseFn({ data: vars }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteWarehouse() {
+  const invalidate = useInvalidateWarehouse();
+  return useMutation({
+    mutationFn: (id: string) => deleteWarehouseFn({ data: { id } }),
     onSuccess: invalidate,
   });
 }

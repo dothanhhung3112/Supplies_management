@@ -42,17 +42,18 @@ function ReceiptDetailPage() {
   const current = receipt;
 
   function onDelete() {
-    deleteReceipt.mutate(current.id, {
-      onSuccess: (err) => {
-        if (err) {
-          toast.error(err);
-          return;
-        }
-        toast.success("Đã xóa phiếu nháp.");
-        void navigate({ to: "/receipts" });
-      },
-    });
-  }
+  deleteReceipt.mutate(current.id, {
+    onSuccess: (err) => {
+      if (err) {
+        toast.error(err);
+        return;
+      }
+      toast.success("Đã xóa phiếu.");
+      void navigate({ to: "/receipts" });
+    },
+    onError: () => toast.error("Xóa phiếu thất bại."),
+  });
+}
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -75,28 +76,28 @@ function ReceiptDetailPage() {
             <Badge variant={receipt.status === "posted" ? "success" : "secondary"}>
               {receipt.status === "posted" ? "Đã ghi sổ" : "Nháp"}
             </Badge>
-            {receipt.status === "draft" ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline">
-                    <Trash2 className="size-4" />
-                    Xóa nháp
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Xóa phiếu nháp?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Phiếu {receipt.code} sẽ bị xóa. Thao tác này không hoàn tác được.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete}>Xóa</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : null}
+       <AlertDialog>
+  <AlertDialogTrigger asChild>
+    <Button variant="outline">
+      <Trash2 className="size-4" />
+      {receipt.status === "posted" ? "Xóa phiếu" : "Xóa nháp"}
+    </Button>
+  </AlertDialogTrigger>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Xóa phiếu nhập?</AlertDialogTitle>
+      <AlertDialogDescription>
+        {receipt.status === "posted"
+          ? `Phiếu ${receipt.code} đã ghi sổ — xóa sẽ hoàn tác tồn kho liên quan đến phiếu này. Thao tác này không hoàn tác được.`
+          : `Phiếu ${receipt.code} sẽ bị xóa. Thao tác này không hoàn tác được.`}
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Hủy</AlertDialogCancel>
+      <AlertDialogAction onClick={onDelete}>Xóa</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
           </div>
         }
       />
