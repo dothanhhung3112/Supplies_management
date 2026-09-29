@@ -64,8 +64,11 @@ const globalRef = globalThis as typeof globalThis & {
  */
 const OID_INT8 = 20;
 const OID_DATE = 1082;
+const OID_TIMESTAMPTZ = 1184;
 const OID_INTERVAL = 1186;
+const OID_NUMERIC = 1700;
 const identity = (v: string) => v;
+const toNumber = (v: string) => Number(v);
 
 type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;
 
@@ -92,7 +95,9 @@ function createNeonSql(): Promise<Sql> {
     const { Pool, types } = await import("pg");
     types.setTypeParser(OID_INT8, Number);
     types.setTypeParser(OID_DATE, identity);
+    types.setTypeParser(OID_TIMESTAMPTZ, identity);
     types.setTypeParser(OID_INTERVAL, identity);
+    types.setTypeParser(OID_NUMERIC, toNumber);
     const pool = new Pool({ connectionString: databaseUrl });
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
@@ -115,7 +120,9 @@ async function createPgliteSql(): Promise<Sql> {
       parsers: {
         [OID_INT8]: Number,
         [OID_DATE]: identity,
+        [OID_TIMESTAMPTZ]: identity,
         [OID_INTERVAL]: identity,
+        [OID_NUMERIC]: toNumber,
       },
     });
     await pg.waitReady;
