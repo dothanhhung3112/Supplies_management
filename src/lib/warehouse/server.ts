@@ -111,7 +111,7 @@ const receiptSummarySql = `
   from warehouse_receipts r
   join warehouse_warehouses w on w.id = r.warehouse_id
   left join warehouse_receipt_lines l on l.receipt_id = r.id
-  group by r.id
+  group by r.id, w.name
 `;
 
 function mapReceipt(r: ReceiptRow): Receipt {
