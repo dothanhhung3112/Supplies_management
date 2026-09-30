@@ -91,6 +91,7 @@ function ReceiptsPage() {
               ["all", "Tất cả"],
               ["draft", "Nháp"],
               ["posted", "Đã ghi sổ"],
+              ["cancelled", "Đã hủy"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -128,8 +129,8 @@ function ReceiptsPage() {
                 <Link to="/receipts/$id" params={{ id: r.id }} className="block">
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-mono font-medium">{r.code}</p>
-                    <Badge variant={r.status === "posted" ? "success" : "secondary"}>
-                      {r.status === "posted" ? "Đã ghi sổ" : "Nháp"}
+                    <Badge variant={r.status === "posted" ? "success" : status === "cancelled" ? "destructive" : "secondary"}>
+                      {r.status === "posted" ? "Đã ghi sổ" : r.status === "cancelled" ? "Đã hủy" : "Nháp"}
                     </Badge>
                   </div>
                   <p className="mt-1 text-sm">{r.supplier}</p>
