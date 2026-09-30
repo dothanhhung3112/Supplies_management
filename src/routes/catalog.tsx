@@ -32,6 +32,7 @@ import {
   useDeleteWarehouse,
 } from "@/lib/warehouse/queries";
 import { formatNumber, formatVnd } from "@/lib/warehouse/format";
+import { norm } from "@/lib/utils";
 import type { Category, Material, Warehouse } from "@/lib/warehouse/types";
 import { EMPTY_CATEGORIES, EMPTY_MATERIALS } from "@/lib/warehouse/empty";
 
@@ -66,13 +67,11 @@ function CatalogPage() {
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? "—";
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = norm(q.trim());
     return materials.filter((m) => {
       if (catFilter !== "all" && m.categoryId !== catFilter) return false;
       if (!needle) return true;
-      return `${m.sku} ${m.name} ${m.location} ${catName(m.categoryId)}`
-        .toLowerCase()
-        .includes(needle);
+      return norm(`${m.sku} ${m.name} ${m.location} ${catName(m.categoryId)}`).includes(needle);
     });
   }, [materials, q, catFilter, categories]);
 
