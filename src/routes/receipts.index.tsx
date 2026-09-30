@@ -129,7 +129,7 @@ function ReceiptsPage() {
                 <Link to="/receipts/$id" params={{ id: r.id }} className="block">
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-mono font-medium">{r.code}</p>
-                    <Badge variant={r.status === "posted" ? "success" : status === "cancelled" ? "destructive" : "secondary"}>
+                    <Badge variant={r.status === "posted" ? "success" : r.status === "cancelled" ? "destructive" : "secondary"}>
                       {r.status === "posted" ? "Đã ghi sổ" : r.status === "cancelled" ? "Đã hủy" : "Nháp"}
                     </Badge>
                   </div>
