@@ -57,6 +57,7 @@ function HistoryPage() {
               ["all", "Tất cả"],
               ["in", "Nhập kho"],
               ["adjust", "Điều chỉnh"],
+              ["reverse", "Hoàn tác"],
             ] as const
           ).map(([key, label]) => (
             <button
