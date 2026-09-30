@@ -148,16 +148,60 @@ function ShellSkeleton() {
   );
 }
 
+function ShellError({
+  message,
+  onRetry,
+  retrying,
+}: {
+  message: string;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-background p-6">
+      <div className="w-full max-w-lg rounded-xl bg-card p-6 shadow-card">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-md bg-destructive/10 p-2 text-destructive">
+            <Warehouse className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-base font-semibold">Không tải được dữ liệu kho</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Máy chủ không trả về dữ liệu. Bạn có thể thử tải lại mà không cần mở lại trang.
+            </p>
+            <p className="mt-3 break-words rounded-md bg-secondary p-3 font-mono text-xs text-muted-foreground">
+              {message}
+            </p>
+            <Button className="mt-4" onClick={onRetry} disabled={retrying}>
+              {retrying ? "Đang thử lại…" : "Thử lại"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [menuOpen, setMenuOpen] = useState(false);
   const { setOpen: setSearchOpen } = useSearchOpen();
-  const { isPending } = useWarehouseData();
+  const { isPending, isError, error, refetch, isFetching } = useWarehouseData();
 
   if (isPending) {
     return (
       <>
         <ShellSkeleton />
+        <Toaster />
+      </>
+    );
+  }
+
+  if (isError) {
+    const message = error instanceof Error ? error.message : String(error);
+    return (
+      <>
+        <ShellError message={message} onRetry={() => void refetch()} retrying={isFetching} />
         <Toaster />
       </>
     );
