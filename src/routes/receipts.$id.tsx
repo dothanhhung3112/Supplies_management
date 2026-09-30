@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, FileDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { ReceiptForm, ReceiptReadOnlyMeta } from "@/components/receipts/receipt-form";
@@ -27,6 +28,7 @@ function ReceiptDetailPage() {
   const { data } = useWarehouseData();
   const receipt = data?.receipts.find((r) => r.id === id);
   const deleteReceipt = useDeleteReceipt();
+  const [exporting, setExporting] = useState(false);
 
   if (!receipt) {
     return (
@@ -41,19 +43,31 @@ function ReceiptDetailPage() {
 
   const current = receipt;
 
+  async function onExport() {
+    setExporting(true);
+    try {
+      const { exportReceiptDocx } = await import("@/lib/warehouse/export-receipt-docx");
+      await exportReceiptDocx(current, data?.materials ?? [], data?.warehouses ?? []);
+    } catch {
+      toast.error("Xuất file Word thất bại.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function onDelete() {
-  deleteReceipt.mutate(current.id, {
-    onSuccess: (err) => {
-      if (err) {
-        toast.error(err);
-        return;
-      }
-      toast.success("Đã xóa phiếu.");
-      void navigate({ to: "/receipts" });
-    },
-    onError: () => toast.error("Xóa phiếu thất bại."),
-  });
-}
+    deleteReceipt.mutate(current.id, {
+      onSuccess: (err) => {
+        if (err) {
+          toast.error(err);
+          return;
+        }
+        toast.success("Đã xóa phiếu.");
+        void navigate({ to: "/receipts" });
+      },
+      onError: () => toast.error("Xóa phiếu thất bại."),
+    });
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -63,6 +77,7 @@ function ReceiptDetailPage() {
           Phiếu nhập
         </Link>
       </Button>
+
       <PageHeader
         eyebrow={receipt.code}
         title={receipt.status === "posted" ? "Phiếu đã ghi sổ" : "Phiếu nháp"}
@@ -76,31 +91,38 @@ function ReceiptDetailPage() {
             <Badge variant={receipt.status === "posted" ? "success" : "secondary"}>
               {receipt.status === "posted" ? "Đã ghi sổ" : "Nháp"}
             </Badge>
-       <AlertDialog>
-  <AlertDialogTrigger asChild>
-    <Button variant="outline">
-      <Trash2 className="size-4" />
-      {receipt.status === "posted" ? "Xóa phiếu" : "Xóa nháp"}
-    </Button>
-  </AlertDialogTrigger>
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle>Xóa phiếu nhập?</AlertDialogTitle>
-      <AlertDialogDescription>
-        {receipt.status === "posted"
-          ? `Phiếu ${receipt.code} đã ghi sổ — xóa sẽ hoàn tác tồn kho liên quan đến phiếu này. Thao tác này không hoàn tác được.`
-          : `Phiếu ${receipt.code} sẽ bị xóa. Thao tác này không hoàn tác được.`}
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-    <AlertDialogFooter>
-      <AlertDialogCancel>Hủy</AlertDialogCancel>
-      <AlertDialogAction onClick={onDelete}>Xóa</AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
+
+            <Button variant="outline" onClick={onExport} disabled={exporting}>
+              <FileDown className="size-4" />
+              {exporting ? "Đang xuất…" : "Xuất Word"}
+            </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline">
+                  <Trash2 className="size-4" />
+                  {receipt.status === "posted" ? "Xóa phiếu" : "Xóa nháp"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xóa phiếu nhập?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {receipt.status === "posted"
+                      ? `Phiếu ${receipt.code} đã ghi sổ — xóa sẽ hoàn tác tồn kho liên quan đến phiếu này. Thao tác này không hoàn tác được.`
+                      : `Phiếu ${receipt.code} sẽ bị xóa. Thao tác này không hoàn tác được.`}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDelete}>Xóa</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         }
       />
+
       <ReceiptReadOnlyMeta receipt={receipt} />
       <ReceiptForm receipt={receipt} />
     </div>
