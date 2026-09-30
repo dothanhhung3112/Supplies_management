@@ -238,11 +238,11 @@ export const getWarehouseHistoryFn = createServerFn({ method: "GET" })
     if (query) {
       params.push(`%${query}%`);
       where.push(`(
-        m.note ilike $${params.length}
-        or coalesce(mat.sku, '') ilike $${params.length}
-        or coalesce(mat.name, '') ilike $${params.length}
-        or coalesce(r.code, '') ilike $${params.length}
-        or coalesce(r.supplier, '') ilike $${params.length}
+        unaccent(m.note) ilike unaccent(${params.length})
+        or unaccent(coalesce(mat.sku, '')) ilike unaccent(${params.length})
+        or unaccent(coalesce(mat.name, '')) ilike unaccent(${params.length})
+        or unaccent(coalesce(r.code, '')) ilike unaccent(${params.length})
+        or unaccent(coalesce(r.supplier, '')) ilike unaccent(${params.length})
       )`);
     }
     const whereSql = where.length ? `where ${where.join(" and ")}` : "";
