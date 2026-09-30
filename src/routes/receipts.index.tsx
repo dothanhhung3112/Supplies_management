@@ -29,7 +29,7 @@ function ReceiptsPage() {
   const { data } = useWarehouseData();
    const receipts = data?.receipts ?? EMPTY_RECEIPTS;
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<"all" | "draft" | "posted">("all");
+  const [status, setStatus] = useState<"all" | "draft" | "posted" | "cancelled">("all");
   const deleteReceipt = useDeleteReceipt();
   const [deleting, setDeleting] = useState<Receipt | null>(null);
 
@@ -49,7 +49,7 @@ function ReceiptsPage() {
     deleteReceipt.mutate(deleting.id, {
       onSuccess: (err) => {
         if (err) toast.error(err);
-        else toast.success("Đã xóa phiếu.");
+        else toast.success(deleting.status === "posted" ? "Đã hủy phiếu và giữ lịch sử." : "Đã xóa phiếu.");
         setDeleting(null);
       },
       onError: () => {
@@ -143,11 +143,11 @@ function ReceiptsPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-3 text-destructive"
+                  className="mt-3 text-destructive" disabled={r.status === "cancelled"}
                   onClick={() => setDeleting(r)}
                 >
                   <Trash2 className="size-4" />
-                  {r.status === "posted" ? "Xóa phiếu" : "Xóa nháp"}
+                  {r.status === "posted" ? "Hủy phiếu" : r.status === "cancelled" ? "Đã hủy" : "Xóa nháp"}
                 </Button>
               </article>
             ))}
@@ -178,8 +178,8 @@ function ReceiptsPage() {
                     <td className="px-3 py-3">{r.supplier}</td>
                     <td className="px-3 py-3 text-muted-foreground">{r.warehouse}</td>
                     <td className="px-3 py-3">
-                      <Badge variant={r.status === "posted" ? "success" : "secondary"}>
-                        {r.status === "posted" ? "Đã ghi sổ" : "Nháp"}
+                      <Badge variant={r.status === "posted" ? "success" : r.status === "cancelled" ? "destructive" : "secondary"}>
+                        {r.status === "posted" ? "Đã ghi sổ" : r.status === "cancelled" ? "Đã hủy" : "Nháp"}
                       </Badge>
                     </td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums">
@@ -211,8 +211,10 @@ function ReceiptsPage() {
             <AlertDialogDescription>
               {deleting
                 ? deleting.status === "posted"
-                  ? `Phiếu ${deleting.code} đã ghi sổ — xóa sẽ hoàn tác tồn kho liên quan đến phiếu này. Thao tác này không hoàn tác được.`
-                  : `Phiếu ${deleting.code} sẽ bị xóa. Thao tác này không hoàn tác được.`
+                  ? `Phiếu ${deleting.code} đã ghi sổ — hệ thống sẽ hủy phiếu và tạo bút toán đảo để giữ nguyên lịch sử.`
+                  : deleting.status === "cancelled"
+                    ? `Phiếu ${deleting.code} đã được hủy và không thể thao tác lại.`
+                    : `Phiếu ${deleting.code} sẽ bị xóa. Thao tác này không hoàn tác được.`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
