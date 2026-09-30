@@ -35,7 +35,7 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
   const saveReceipt = useSaveReceipt();
   const postReceipt = usePostReceipt();
 
-  const posted = receipt?.status === "posted";
+  const posted = receipt?.status === "posted" || receipt?.status === "cancelled";
   const [date, setDate] = useState(receipt?.date ?? todayIsoDate());
   const [supplier, setSupplier] = useState(receipt?.supplier ?? "");
   const [warehouseId, setWarehouseId] = useState(receipt?.warehouseId ?? "");
