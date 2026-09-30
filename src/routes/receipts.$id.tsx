@@ -66,7 +66,7 @@ function ReceiptDetailPage() {
           toast.error(err);
           return;
         }
-        toast.success("Đã xóa phiếu.");
+        toast.success(current.status === "posted" ? "Đã hủy phiếu và giữ lịch sử." : "Đã xóa phiếu.");
         void navigate({ to: "/receipts" });
       },
       onError: () => toast.error("Xóa phiếu thất bại."),
@@ -84,16 +84,18 @@ function ReceiptDetailPage() {
 
       <PageHeader
         eyebrow={receipt.code}
-        title={receipt.status === "posted" ? "Phiếu đã ghi sổ" : "Phiếu nháp"}
+        title={receipt.status === "posted" ? "Phiếu đã ghi sổ" : receipt.status === "cancelled" ? "Phiếu đã hủy" : "Phiếu nháp"}
         description={
           receipt.status === "posted" && receipt.postedAt
             ? `Ghi sổ lúc ${formatDateTime(receipt.postedAt)} · ${receipt.warehouse}`
-            : `${receipt.warehouse}. Chỉnh sửa rồi ghi sổ để cộng tồn.`
+            : receipt.status === "cancelled"
+              ? `${receipt.warehouse}. Phiếu đã hủy; bút toán đảo vẫn được giữ trong lịch sử.`
+              : `${receipt.warehouse}. Chỉnh sửa rồi ghi sổ để cộng tồn.`
         }
         actions={
           <div className="flex items-center gap-2">
-            <Badge variant={receipt.status === "posted" ? "success" : "secondary"}>
-              {receipt.status === "posted" ? "Đã ghi sổ" : "Nháp"}
+            <Badge variant={receipt.status === "posted" ? "success" : receipt.status === "cancelled" ? "destructive" : "secondary"}>
+              {receipt.status === "posted" ? "Đã ghi sổ" : receipt.status === "cancelled" ? "Đã hủy" : "Nháp"}
             </Badge>
 
             <Button variant="outline" onClick={onExport} disabled={exporting}>
@@ -101,11 +103,11 @@ function ReceiptDetailPage() {
               {exporting ? "Đang xuất…" : "Xuất Word"}
             </Button>
 
-            <AlertDialog>
+            {receipt.status === "cancelled" ? null : <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline">
                   <Trash2 className="size-4" />
-                  {receipt.status === "posted" ? "Xóa phiếu" : "Xóa nháp"}
+                  {receipt.status === "posted" ? "Hủy phiếu" : "Xóa nháp"}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -113,7 +115,7 @@ function ReceiptDetailPage() {
                   <AlertDialogTitle>Xóa phiếu nhập?</AlertDialogTitle>
                   <AlertDialogDescription>
                     {receipt.status === "posted"
-                      ? `Phiếu ${receipt.code} đã ghi sổ — xóa sẽ hoàn tác tồn kho liên quan đến phiếu này. Thao tác này không hoàn tác được.`
+                      ? `Phiếu ${receipt.code} đã ghi sổ — hệ thống sẽ hủy phiếu và tạo bút toán đảo để giữ nguyên lịch sử.`
                       : `Phiếu ${receipt.code} sẽ bị xóa. Thao tác này không hoàn tác được.`}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -122,7 +124,7 @@ function ReceiptDetailPage() {
                   <AlertDialogAction onClick={onDelete}>Xóa</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
-            </AlertDialog>
+            </AlertDialog>}
           </div>
         }
       />
