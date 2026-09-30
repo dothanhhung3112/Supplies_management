@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { formatNumber, formatQty, formatVnd } from "@/lib/warehouse/format";
 import { stockMap, stockStatus, type StockStatus } from "@/lib/warehouse/selectors";
 import { useWarehouseData } from "@/lib/warehouse/queries";
+import { norm } from "@/lib/utils";
 import { EMPTY_CATEGORIES, EMPTY_MATERIALS, EMPTY_MOVEMENTS } from "@/lib/warehouse/empty";
 import type { Material } from "@/lib/warehouse/types";
 
@@ -29,7 +30,7 @@ function InventoryPage() {
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? "—";
 
   const rows = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = norm(q.trim());
     return materials
       .map((m) => {
         const qty = stocks.get(m.id) ?? 0;
@@ -39,7 +40,7 @@ function InventoryPage() {
         if (catFilter !== "all" && row.material.categoryId !== catFilter) return false;
         if (status !== "all" && row.status !== status) return false;
         if (!needle) return true;
-        return `${row.material.sku} ${row.material.name} ${row.material.location}`.toLowerCase().includes(needle);
+        return norm(`${row.material.sku} ${row.material.name} ${row.material.location}`).includes(needle);
       })
       .sort((a, b) => a.qty - b.qty);
   }, [materials, stocks, q, catFilter, status]);
