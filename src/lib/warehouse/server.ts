@@ -508,8 +508,8 @@ export const postReceiptFn = createServerFn({ method: "POST" })
     const sql = await getSql();
 
     const [receiptRows, lines] = await Promise.all([
-      sql.query<{ id: string; code: string; status: string; supplier: string }>(
-        `select id, code, status, supplier from warehouse_receipts where id = $1`,
+      sql.query<{ id: string; code: string; status: string; supplier: string; warehouse: string }>(
+        `select id, code, status, supplier, warehouse from warehouse_receipts where id = $1`,
         [data.id],
       ),
       sql.query<ReceiptLine>(
@@ -528,8 +528,13 @@ export const postReceiptFn = createServerFn({ method: "POST" })
     }
 
     // Ghi movement cho tất cả các dòng bằng 1 câu insert nhiều dòng.
+    const warehouseRows = await sql.query<{ id: string }>(
+      `select id from warehouse_warehouses where name = $1`,
+      [receipt.warehouse],
+    );
+    const warehouseId = warehouseRows[0]?.id ?? null;
     const movementValues = lines
-      .map((_, i) => `($${i * 6 + 1}, $${i * 6 + 2}, 'in', $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`)
+      .map((_, i) => `(${i * 7 + 1}, ${i * 7 + 2}, 'in', ${i * 7 + 3}, ${i * 7 + 4}, ${i * 7 + 5}, ${i * 7 + 6}, ${i * 7 + 7})`)
       .join(", ");
     const movementParams = lines.flatMap((line) => [
       uid("mv"),
@@ -538,6 +543,7 @@ export const postReceiptFn = createServerFn({ method: "POST" })
       line.unitPrice,
       data.id,
       `Nhập kho ${receipt.code}`,
+      warehouseId,
     ]);
 
     // Cập nhật giá gần nhất cho từng vật tư bằng 1 câu update nhiều dòng
@@ -559,7 +565,7 @@ export const postReceiptFn = createServerFn({ method: "POST" })
         [data.id],
       ),
       sql.query(
-        `insert into warehouse_movements (id, material_id, type, quantity, unit_price, receipt_id, note)
+        `insert into warehouse_movements (id, material_id, type, quantity, unit_price, receipt_id, note, warehouse_id)
          values ${movementValues}`,
         movementParams,
       ),
@@ -610,9 +616,9 @@ export const adjustStockFn = createServerFn({ method: "POST" })
     if (rows.length === 0) return "Không tìm thấy vật tư.";
 
     await sql.query(
-      `insert into warehouse_movements (id, material_id, type, quantity, unit_price, receipt_id, note)
-       values ($1, $2, 'adjust', $3, $4, null, $5)`,
-      [uid("mv"), data.materialId, data.quantity, rows[0].lastUnitPrice, data.note.trim()],
+      `insert into warehouse_movements (id, material_id, type, quantity, unit_price, receipt_id, note, warehouse_id)
+       values ($1, $2, 'adjust', $3, $4, null, $5, $6)`,
+      [uid("mv"), data.materialId, data.quantity, rows[0].lastUnitPrice, data.note.trim(), null],
     );
     return null;
   });
