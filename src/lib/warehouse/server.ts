@@ -63,6 +63,8 @@ type ReceiptRow = {
   status: string;
   createdAt: string;
   postedAt: string | null;
+  lineCount: number;
+  totalValue: number;
 };
 
 type ReceiptLineRow = {
@@ -77,72 +79,198 @@ type CountRow = { count: number };
 type CodeRow = { code: string };
 type StatusRow = { status: string };
 type LastPriceRow = { lastUnitPrice: number };
+type StockRow = { materialId: string; warehouseId: string | null; qty: number };
+type MonthlyInboundRow = { month: string; value: number; qty: number };
+type HistoryRow = {
+  id: string;
+  materialId: string;
+  warehouseId: string | null;
+  type: string;
+  quantity: number;
+  unitPrice: number;
+  receiptId: string | null;
+  note: string;
+  createdAt: string;
+  materialSku: string | null;
+  materialName: string | null;
+  materialUnit: string | null;
+  receiptCode: string | null;
+  receiptSupplier: string | null;
+};
 
-// ── Load toàn bộ dữ liệu (5 query chạy song song thay vì tuần tự) ────────
+const receiptSummarySql = `
+  select
+    r.id, r.code, r.date::text, r.supplier, r.warehouse, r.note, r.status,
+    r.created_at as "createdAt", r.posted_at as "postedAt",
+    count(l.id)::int as "lineCount",
+    coalesce(sum(l.quantity * l.unit_price), 0)::numeric as "totalValue"
+  from warehouse_receipts r
+  left join warehouse_receipt_lines l on l.receipt_id = r.id
+  group by r.id
+`;
+
+function mapReceipt(r: ReceiptRow): Receipt {
+  return {
+    id: r.id,
+    code: r.code,
+    date: r.date,
+    supplier: r.supplier,
+    warehouse: r.warehouse,
+    note: r.note,
+    status: r.status as Receipt["status"],
+    lines: [],
+    lineCount: Number(r.lineCount),
+    totalValue: Number(r.totalValue),
+    createdAt: r.createdAt,
+    postedAt: r.postedAt,
+  };
+}
+
+// ── Load summary data ─────────────────────────────────────────────────────
+// Không tải toàn bộ movements/receipt-lines. Tồn và biểu đồ được aggregate ở DB.
 
 export const loadWarehouseData = createServerFn({ method: "GET" }).handler(
   async (): Promise<WarehouseData> => {
     const sql = await getSql();
+    const [categories, materials, receiptRows, warehouses, stocks, inboundByMonth] = await Promise.all([
+      sql.query<Category>(`select id, name, description from warehouse_categories order by name`),
+      sql.query<Material>(
+        `select id, sku, name, category_id as "categoryId", unit,
+                min_stock as "minStock", location, note,
+                last_unit_price as "lastUnitPrice", created_at as "createdAt"
+         from warehouse_materials
+         order by name`,
+      ),
+      sql.query<ReceiptRow>(`${receiptSummarySql} order by r.date desc, r.created_at desc limit 200`),
+      sql.query<Warehouse>(`select id, name, address from warehouse_warehouses order by name`),
+      sql.query<StockRow>(
+        `select material_id as "materialId", warehouse_id as "warehouseId", qty
+         from warehouse_stock`,
+      ),
+      sql.query<MonthlyInboundRow>(
+        `select to_char(r.date, 'YYYY-MM') as month,
+                coalesce(sum(l.quantity * l.unit_price), 0)::numeric as value,
+                coalesce(sum(l.quantity), 0)::numeric as qty
+         from warehouse_receipts r
+         join warehouse_receipt_lines l on l.receipt_id = r.id
+         where r.status = 'posted'
+           and r.date >= date_trunc('month', current_date) - interval '5 months'
+         group by 1
+         order by 1`,
+      ),
+    ]);
 
-    const [categories, materials, receiptRows, lineRows, movements, warehouses] = await Promise.all([
-  sql.query<Category>(`select id, name, description from warehouse_categories`),
-  sql.query<Material>(
-    `select id, sku, name, category_id as "categoryId", unit,
-            min_stock as "minStock", location, note,
-            last_unit_price as "lastUnitPrice", created_at as "createdAt"
-     from warehouse_materials`,
-  ),
-  sql.query<ReceiptRow>(
-    `select id, code, date::text, supplier, warehouse, note, status,
-            created_at as "createdAt", posted_at as "postedAt"
-     from warehouse_receipts
-     order by date desc, created_at desc`,
-  ),
-  sql.query<ReceiptLineRow>(
-    `select id, receipt_id as "receiptId", material_id as "materialId",
-            quantity, unit_price as "unitPrice"
-     from warehouse_receipt_lines`,
-  ),
-  sql.query<Movement>(
-    `select id, material_id as "materialId", type, quantity,
-            unit_price as "unitPrice", receipt_id as "receiptId",
-            note, created_at as "createdAt"
-     from warehouse_movements
-     order by created_at desc`,
-  ),
-  sql.query<Warehouse>(
-    `select id, name, address from warehouse_warehouses order by name`,
-  ),
-]);
+    return {
+      categories,
+      materials,
+      receipts: receiptRows.map(mapReceipt),
+      movements: [],
+      warehouses,
+      stocks: stocks.map((row) => ({
+        materialId: row.materialId,
+        warehouseId: row.warehouseId,
+        qty: Number(row.qty),
+      })),
+      inboundByMonth: inboundByMonth.map((row) => ({
+        month: row.month,
+        value: Number(row.value),
+        qty: Number(row.qty),
+      })),
+    };
+  },
+);
 
-    const linesByReceipt = new Map<string, ReceiptLine[]>();
-    for (const line of lineRows) {
-      const list = linesByReceipt.get(line.receiptId) ?? [];
-      list.push({
+export const getReceiptFn = createServerFn({ method: "GET" })
+  .validator(z.object({ id: z.string() }))
+  .handler(async ({ data }): Promise<Receipt | null> => {
+    const sql = await getSql();
+    const [rows, lines] = await Promise.all([
+      sql.query<ReceiptRow>(`${receiptSummarySql} having r.id = $1`, [data.id]),
+      sql.query<ReceiptLineRow>(
+        `select id, receipt_id as "receiptId", material_id as "materialId",
+                quantity, unit_price as "unitPrice"
+         from warehouse_receipt_lines
+         where receipt_id = $1
+         order by id`,
+        [data.id],
+      ),
+    ]);
+    if (!rows[0]) return null;
+    return {
+      ...mapReceipt(rows[0]),
+      lines: lines.map((line) => ({
         id: line.id,
         materialId: line.materialId,
         quantity: line.quantity,
         unitPrice: line.unitPrice,
-      });
-      linesByReceipt.set(line.receiptId, list);
+      })),
+    };
+  });
+
+export const getWarehouseHistoryFn = createServerFn({ method: "GET" })
+  .validator(
+    z.object({
+      limit: z.number().int().min(1).max(100).default(50),
+      offset: z.number().int().min(0).default(0),
+      q: z.string().default(""),
+      type: z.enum(["all", "in", "adjust"]).default("all"),
+    }),
+  )
+  .handler(async ({ data }): Promise<import("./types").WarehouseHistoryPage> => {
+    const sql = await getSql();
+    const limit = data.limit;
+    const offset = data.offset;
+    const typeFilter = data.type === "all" ? "" : data.type;
+    const query = data.q.trim();
+    const params: unknown[] = [];
+    const where: string[] = [];
+
+    if (typeFilter) {
+      params.push(typeFilter);
+      where.push(`m.type = $${params.length}`);
     }
-
-    const receipts: Receipt[] = receiptRows.map((r) => ({
-      id: r.id,
-      code: r.code,
-      date: r.date,
-      supplier: r.supplier,
-      warehouse: r.warehouse,
-      note: r.note,
-      status: r.status as Receipt["status"],
-      createdAt: r.createdAt,
-      postedAt: r.postedAt,
-      lines: linesByReceipt.get(r.id) ?? [],
-    }));
-
-    return { categories, materials, receipts, movements, warehouses };
-  },
-);
+    if (query) {
+      params.push(`%${query}%`);
+      where.push(`(
+        m.note ilike $${params.length}
+        or coalesce(mat.sku, '') ilike $${params.length}
+        or coalesce(mat.name, '') ilike $${params.length}
+        or coalesce(r.code, '') ilike $${params.length}
+        or coalesce(r.supplier, '') ilike $${params.length}
+      )`);
+    }
+    const whereSql = where.length ? `where ${where.join(" and ")}` : "";
+    const countRows = await sql.query<CountRow>(
+      `select count(*)::int as count
+       from warehouse_movements m
+       left join warehouse_materials mat on mat.id = m.material_id
+       left join warehouse_receipts r on r.id = m.receipt_id
+       ${whereSql}`,
+      params,
+    );
+    const pageParams = [...params, limit, offset];
+    const rows = await sql.query<HistoryRow>(
+      `select
+         m.id, m.material_id as "materialId", m.warehouse_id as "warehouseId",
+         m.type, m.quantity, m.unit_price as "unitPrice",
+         m.receipt_id as "receiptId", m.note, m.created_at as "createdAt",
+         mat.sku as "materialSku", mat.name as "materialName", mat.unit as "materialUnit",
+         r.code as "receiptCode", r.supplier as "receiptSupplier"
+       from warehouse_movements m
+       left join warehouse_materials mat on mat.id = m.material_id
+       left join warehouse_receipts r on r.id = m.receipt_id
+       ${whereSql}
+       order by m.created_at desc, m.id desc
+       limit $${pageParams.length - 1} offset $${pageParams.length}`,
+      pageParams,
+    );
+    return {
+      rows: rows.map((row) => ({ ...row, quantity: Number(row.quantity), unitPrice: Number(row.unitPrice) })),
+      total: countRows[0]?.count ?? 0,
+      limit,
+      offset,
+    };
+  });
 
 // ── Category ──────────────────────────────────────────────────────────────
 
