@@ -22,6 +22,7 @@ import { formatDate, formatVnd } from "@/lib/warehouse/format";
 import { receiptTotal } from "@/lib/warehouse/selectors";
 import { useWarehouseData, useDeleteReceipt } from "@/lib/warehouse/queries";
 import type { Receipt } from "@/lib/warehouse/types";
+import { norm } from "@/lib/utils";
 
 export const Route = createFileRoute("/receipts/")({ component: ReceiptsPage });
 
@@ -34,12 +35,12 @@ function ReceiptsPage() {
   const [deleting, setDeleting] = useState<Receipt | null>(null);
 
   const rows = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = norm(q.trim());
     return [...receipts]
       .filter((r) => (status === "all" ? true : r.status === status))
       .filter((r) => {
         if (!needle) return true;
-        return `${r.code} ${r.supplier} ${r.warehouse} ${r.note}`.toLowerCase().includes(needle);
+        return norm(`${r.code} ${r.supplier} ${r.warehouse} ${r.note}`).includes(needle);
       })
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   }, [receipts, q, status]);
