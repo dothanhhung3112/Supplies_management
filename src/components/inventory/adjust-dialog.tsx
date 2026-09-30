@@ -11,34 +11,39 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatQty } from "@/lib/warehouse/format";
 import { useAdjustStock } from "@/lib/warehouse/queries";
-import type { Material } from "@/lib/warehouse/types";
+import type { Material, Warehouse } from "@/lib/warehouse/types";
 
 export function AdjustDialog({
   open,
   onOpenChange,
   material,
   currentQty,
+  warehouses,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   material: Material | null;
   currentQty: number;
+  warehouses: Warehouse[];
 }) {
   const adjustStock = useAdjustStock();
   const [qty, setQty] = useState("");
   const [note, setNote] = useState("");
   const [dir, setDir] = useState<"in" | "out">("out");
+  const [warehouseId, setWarehouseId] = useState("");
 
   useEffect(() => {
     if (open) {
       setQty("");
       setNote("");
       setDir("out");
+      setWarehouseId(warehouses[0]?.id ?? "");
     }
-  }, [open, material]);
+  }, [open, material, warehouses]);
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -48,9 +53,13 @@ export function AdjustDialog({
       toast.error("Nhập số lượng lớn hơn 0.");
       return;
     }
+    if (!warehouseId) {
+      toast.error("Chọn kho.");
+      return;
+    }
     const signed = dir === "out" ? -n : n;
     adjustStock.mutate(
-      { materialId: material.id, quantity: signed, note },
+      { materialId: material.id, warehouseId, quantity: signed, note },
       {
         onSuccess: (err) => {
           if (err) {
@@ -77,6 +86,15 @@ export function AdjustDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">
+          <div className="space-y-2">
+            <Label>Kho</Label>
+            <Select value={warehouseId} onValueChange={setWarehouseId}>
+              <SelectTrigger><SelectValue placeholder="Chọn kho" /></SelectTrigger>
+              <SelectContent>
+                {warehouses.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
