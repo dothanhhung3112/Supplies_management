@@ -58,7 +58,7 @@ type ReceiptRow = {
   code: string;
   date: string;
   supplier: string;
-  warehouseId: string;
+  warehouseId: string | null;
   warehouse: string;
   note: string;
   status: string;
@@ -103,13 +103,13 @@ type HistoryRow = {
 const receiptSummarySql = `
   select
     r.id, r.code, r.date::text, r.supplier,
-    r.warehouse_id as "warehouseId", w.name as warehouse,
+    r.warehouse_id as "warehouseId", coalesce(w.name, 'Kho đã xóa') as warehouse,
     r.note, r.status,
     r.created_at as "createdAt", r.posted_at as "postedAt",
     count(l.id)::int as "lineCount",
     coalesce(sum(l.quantity * l.unit_price), 0)::numeric as "totalValue"
   from warehouse_receipts r
-  join warehouse_warehouses w on w.id = r.warehouse_id
+  left join warehouse_warehouses w on w.id = r.warehouse_id
   left join warehouse_receipt_lines l on l.receipt_id = r.id
   group by r.id, w.name
 `;
@@ -354,19 +354,34 @@ export const deleteWarehouseFn = createServerFn({ method: "POST" })
       [data.id],
     );
     if (rows.length === 0) return "Không tìm thấy kho.";
-    const [receiptUsage, movementUsage] = await Promise.all([
+    const [stockUsage, draftReceiptUsage] = await Promise.all([
       sql.query<CountRow>(
-        `select count(*)::int as count from warehouse_receipts where warehouse_id = $1`,
+        `select count(*)::int as count
+         from (
+           select material_id
+           from warehouse_movements
+           where warehouse_id = $1
+           group by material_id
+           having coalesce(sum(quantity), 0) <> 0
+         ) stock`,
         [data.id],
       ),
       sql.query<CountRow>(
-        `select count(*)::int as count from warehouse_movements where warehouse_id = $1`,
+        `select count(*)::int as count
+         from warehouse_receipts
+         where warehouse_id = $1 and status = 'draft'`,
         [data.id],
       ),
     ]);
-    if ((receiptUsage[0]?.count ?? 0) > 0 || (movementUsage[0]?.count ?? 0) > 0) {
-      return "Không thể xóa kho đã có phát sinh tồn kho hoặc phiếu nhập.";
+    if ((stockUsage[0]?.count ?? 0) > 0) {
+      return "Không thể xóa kho khi vẫn còn tồn kho khác 0.";
     }
+    if ((draftReceiptUsage[0]?.count ?? 0) > 0) {
+      return "Không thể xóa kho đang có phiếu nhập nháp.";
+    }
+
+    // Historical posted/cancelled receipts and movements are preserved.
+    // The migration changes their warehouse FK to ON DELETE SET NULL.
     await sql.query(`delete from warehouse_warehouses where id = $1`, [data.id]);
     return null;
   });
