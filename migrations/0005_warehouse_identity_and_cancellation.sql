@@ -13,6 +13,12 @@ alter table warehouse_receipts
 create index if not exists warehouse_receipts_warehouse_idx
   on warehouse_receipts(warehouse_id);
 
+update warehouse_movements
+set warehouse_id = (
+  select id from warehouse_warehouses order by created_at, id limit 1
+)
+where warehouse_id is null;
+
 alter table warehouse_movements
   alter column warehouse_id set not null;
 
