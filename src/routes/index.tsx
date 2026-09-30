@@ -1,15 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { lazy, Suspense } from "react";
+import { format } from "date-fns";
 import { AlertTriangle, ArrowRight, Boxes, ClipboardList, PackagePlus, Warehouse } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+const InboundChart = lazy(() => import("@/components/dashboard/inbound-chart").then((m) => ({ default: m.InboundChart })));
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,17 +32,13 @@ function Home() {
   const categories = data?.categories ?? [];
   const materials = data?.materials ?? [];
   const receipts = data?.receipts ?? [];
-  const movements = data?.movements ?? [];
-  const warehouseData = { categories, materials, receipts, movements };
+  const warehouseData = data ?? { categories, materials, receipts, movements: [], warehouses: [], stocks: [], inboundByMonth: [] };
   const low = lowStockMaterials(warehouseData);
-  const value = inventoryValue(materials, movements);
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const value = inventoryValue(materials, data?.stocks ?? []);
+  const thisMonth = format(new Date(), "yyyy-MM");
   const postedThisMonth = receipts.filter((r) => r.status === "posted" && r.date.startsWith(thisMonth));
   const drafts = receipts.filter((r) => r.status === "draft");
-  const chart = inboundByMonth(warehouseData, 6).map((row) => ({
-    ...row,
-    label: monthLabel(row.month),
-  }));
+  const chart = inboundByMonth(warehouseData, 6);
   const recent = [...receipts].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
 
   return (
@@ -101,34 +91,9 @@ function Home() {
             <CardTitle>Nhập kho 6 tháng</CardTitle>
           </CardHeader>
           <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chart} barCategoryGap="28%">
-                <CartesianGrid stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tickFormatter={(v) => `${Math.round(Number(v) / 1_000_000)}tr`}
-                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={40}
-                />
-                <Tooltip
-                  cursor={{ fill: "var(--color-secondary)" }}
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.[0]) return null;
-                    const row = payload[0].payload as { label: string; value: number; qty: number };
-                    return (
-                      <div className="rounded-md border border-border bg-card px-3 py-2 text-sm shadow-card">
-                        <p className="font-medium">{row.label}</p>
-                        <p className="tabular-nums">{formatVnd(row.value)}</p>
-                        <p className="text-muted-foreground">{formatNumber(row.qty)} đơn vị nhập</p>
-                      </div>
-                    );
-                  }}
-                />
-                <Bar dataKey="value" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="h-full animate-pulse rounded-lg bg-secondary" />}>
+              <InboundChart data={chart} />
+            </Suspense>
           </CardContent>
         </Card>
 
