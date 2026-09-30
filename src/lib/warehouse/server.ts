@@ -346,8 +346,8 @@ export const deleteWarehouseFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.string() }))
   .handler(async ({ data }): Promise<string | null> => {
     const sql = await getSql();
-    const rows = await sql.query<{ name: string }>(
-      `select name from warehouse_warehouses where id = $1`,
+    const rows = await sql.query<{ id: string }>(
+      `select id from warehouse_warehouses where id = $1`,
       [data.id],
     );
     if (rows.length === 0) return "Không tìm thấy kho.";
