@@ -137,7 +137,7 @@ function ReceiptsPage() {
                   <p className="mt-2 text-sm text-muted-foreground">
                     {formatDate(r.date)} · {r.warehouse}
                   </p>
-                  <p className="mt-1 font-mono text-sm tabular-nums">{formatVnd(receiptTotal(r.lines))}</p>
+                  <p className="mt-1 font-mono text-sm tabular-nums">{formatVnd(r.totalValue)}</p>
                 </Link>
                 <Button
                   type="button"
