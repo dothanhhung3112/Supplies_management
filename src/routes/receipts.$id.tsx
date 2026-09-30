@@ -18,7 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { formatDateTime } from "@/lib/warehouse/format";
-import { useReceipt, useDeleteReceipt } from "@/lib/warehouse/queries";
+import { useReceipt, useDeleteReceipt, useWarehouseData } from "@/lib/warehouse/queries";
 
 export const Route = createFileRoute("/receipts/$id")({ component: ReceiptDetailPage });
 
@@ -26,6 +26,7 @@ function ReceiptDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { data: receipt, isPending } = useReceipt(id);
+  const { data: warehouseData } = useWarehouseData();
   const deleteReceipt = useDeleteReceipt();
   const [exporting, setExporting] = useState(false);
 
@@ -50,7 +51,7 @@ function ReceiptDetailPage() {
     setExporting(true);
     try {
       const { exportReceiptDocx } = await import("@/lib/warehouse/export-receipt-docx");
-      await exportReceiptDocx(current, [], []);
+      await exportReceiptDocx(current, warehouseData?.materials ?? [], warehouseData?.warehouses ?? []);
     } catch {
       toast.error("Xuất file Word thất bại.");
     } finally {
