@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useWarehouseData } from "@/lib/warehouse/queries";
 import { formatDate } from "@/lib/warehouse/format";
 import { SearchContext, useSearchOpen } from "@/lib/search-context";
+import { norm } from "@/lib/utils";
 
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -40,22 +41,22 @@ export function SearchCommand() {
   const materials = useMemo(() => data?.materials ?? [], [data?.materials]);
   const receipts = useMemo(() => data?.receipts ?? [], [data?.receipts]);
 
-  const needle = q.trim().toLowerCase();
+  const needle = norm(q.trim());
 
   const pageHits = useMemo(
-    () => PAGES.filter((p) => !needle || p.label.toLowerCase().includes(needle)),
+    () => PAGES.filter((p) => !needle || norm(p.label).includes(needle)),
     [needle],
   );
   const materialHits = useMemo(() => {
     if (!needle) return materials.slice(0, 6);
     return materials
-      .filter((m) => `${m.sku} ${m.name}`.toLowerCase().includes(needle))
+      .filter((m) => norm(`${m.sku} ${m.name}`).includes(needle))
       .slice(0, 8);
   }, [materials, needle]);
   const receiptHits = useMemo(() => {
     if (!needle) return receipts.slice(0, 5);
     return receipts
-      .filter((r) => `${r.code} ${r.supplier} ${r.note}`.toLowerCase().includes(needle))
+      .filter((r) => norm(`${r.code} ${r.supplier} ${r.note}`).includes(needle))
       .slice(0, 8);
   }, [receipts, needle]);
 
