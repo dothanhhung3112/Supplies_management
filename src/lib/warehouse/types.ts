@@ -37,7 +37,7 @@ export type Receipt = {
   code: string;
   date: string;
   supplier: string;
-  warehouseId: string;
+  warehouseId: string | null;
   warehouse: string;
   note: string;
   status: ReceiptStatus;
