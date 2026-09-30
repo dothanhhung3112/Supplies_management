@@ -38,17 +38,17 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
   const posted = receipt?.status === "posted";
   const [date, setDate] = useState(receipt?.date ?? todayIsoDate());
   const [supplier, setSupplier] = useState(receipt?.supplier ?? "");
-  const [warehouse, setWarehouse] = useState(receipt?.warehouse ?? "");
+  const [warehouseId, setWarehouseId] = useState(receipt?.warehouseId ?? "");
   const [note, setNote] = useState(receipt?.note ?? "");
   const [lines, setLines] = useState<ReceiptLine[]>(
     receipt?.lines.length ? receipt.lines : [emptyLine()],
   );
 
   useEffect(() => {
-    if (!receipt && !warehouse && warehouses.length > 0) {
-      setWarehouse(warehouses[0].name);
+    if (!receipt && !warehouseId && warehouses.length > 0) {
+      setWarehouseId(warehouses[0].id);
     }
-  }, [warehouses, receipt, warehouse]);
+  }, [warehouses, receipt, warehouseId]);
 
   const suppliers = useMemo(
     () => uniqueSuppliers({ categories, materials, receipts, movements: [], warehouses }),
@@ -73,13 +73,17 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
     return {
       date,
       supplier: supplier.trim(),
-      warehouse,
+      warehouseId,
       note: note.trim(),
       lines: lines.filter((l) => l.materialId),
     };
   }
 
   function validate() {
+    if (!warehouseId) {
+      toast.error("Chọn kho nhận.");
+      return false;
+    }
     if (!supplier.trim()) {
       toast.error("Nhập nhà cung cấp.");
       return false;
@@ -153,13 +157,13 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="warehouse">Kho nhận</Label>
-            <Select value={warehouse} onValueChange={setWarehouse} disabled={posted}>
+            <Select value={warehouseId} onValueChange={setWarehouseId} disabled={posted}>
               <SelectTrigger id="warehouse">
                 <SelectValue placeholder="Chọn kho" />
               </SelectTrigger>
               <SelectContent>
                 {warehouses.map((w) => (
-                  <SelectItem key={w.id} value={w.name}>
+                  <SelectItem key={w.id} value={w.id}>
                     {w.name}
                   </SelectItem>
                 ))}
@@ -381,7 +385,7 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
 export function ReceiptReadOnlyMeta({ receipt }: { receipt: Receipt }) {
   return (
     <p className="text-sm text-muted-foreground">
-      Tổng {formatNumber(receipt.lines.length)} dòng · {formatVnd(receiptTotal(receipt.lines))}
+      Kho {receipt.warehouse} · Tổng {formatNumber(receipt.lines.length)} dòng · {formatVnd(receipt.totalValue)}
     </p>
   );
 }
