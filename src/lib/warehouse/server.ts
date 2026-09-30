@@ -150,11 +150,16 @@ export const loadWarehouseData = createServerFn({ method: "GET" }).handler(
       sql.query<ReceiptRow>(`${receiptSummarySql} order by r.date desc, r.created_at desc limit 200`),
       sql.query<Warehouse>(`select id, name, address from warehouse_warehouses order by name`),
       sql.query<StockRow>(
-        `select material_id as "materialId",
-                warehouse_id as "warehouseId",
-                coalesce(sum(quantity), 0)::numeric as qty
-         from warehouse_movements
-         group by material_id, warehouse_id`,
+        `select
+           m.id as "materialId",
+           w.id as "warehouseId",
+           coalesce(sum(mv.quantity), 0)::numeric as qty
+         from warehouse_materials m
+         cross join warehouse_warehouses w
+         left join warehouse_movements mv
+           on mv.material_id = m.id
+          and mv.warehouse_id = w.id
+         group by m.id, w.id`,
       ),
       sql.query<MonthlyInboundRow>(
         `select to_char(r.date, 'YYYY-MM') as month,
