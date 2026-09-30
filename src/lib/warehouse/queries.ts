@@ -11,6 +11,8 @@ import {
   postReceiptFn,
   deleteReceiptFn,
   adjustStockFn,
+  getWarehouseHistoryFn,
+  getReceiptFn,
   addWarehouseFn,
   updateWarehouseFn,
   deleteWarehouseFn,
@@ -31,6 +33,27 @@ function useInvalidateWarehouse() {
   return () => qc.invalidateQueries({ queryKey: warehouseKeys.all });
 }
 
+export function useWarehouseHistory(params: {
+  limit: number;
+  offset: number;
+  q: string;
+  type: "all" | "in" | "adjust";
+}) {
+  return useQuery({
+    queryKey: [...warehouseKeys.all, "history", params],
+    queryFn: () => getWarehouseHistoryFn({ data: params }),
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useReceipt(id: string) {
+  return useQuery({
+    queryKey: [...warehouseKeys.all, "receipt", id],
+    queryFn: () => getReceiptFn({ data: { id } }),
+    enabled: Boolean(id),
+  });
+}
+
 // ── Category ──────────────────────────────────────────────────────────────
 
 export function useAddCategory() {
@@ -38,7 +61,7 @@ export function useAddCategory() {
   return useMutation({
     mutationFn: (input: { name: string; description: string }) =>
       addCategoryFn({ data: input }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -47,7 +70,7 @@ export function useUpdateCategory() {
   return useMutation({
     mutationFn: (vars: { id: string; input: { name: string; description: string } }) =>
       updateCategoryFn({ data: vars }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -55,7 +78,7 @@ export function useDeleteCategory() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
     mutationFn: (id: string) => deleteCategoryFn({ data: { id } }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -76,7 +99,7 @@ export function useAddMaterial() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
     mutationFn: (input: MaterialInput) => addMaterialFn({ data: input }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -85,7 +108,7 @@ export function useUpdateMaterial() {
   return useMutation({
     mutationFn: (vars: { id: string; input: MaterialInput }) =>
       updateMaterialFn({ data: vars }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -93,7 +116,7 @@ export function useDeleteMaterial() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
     mutationFn: (id: string) => deleteMaterialFn({ data: { id } }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -113,7 +136,7 @@ export function useSaveReceipt() {
   return useMutation({
     mutationFn: (vars: { input: ReceiptDraft; existingId?: string }) =>
       saveReceiptFn({ data: vars }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -121,7 +144,7 @@ export function usePostReceipt() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
     mutationFn: (id: string) => postReceiptFn({ data: { id } }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -129,7 +152,7 @@ export function useDeleteReceipt() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
     mutationFn: (id: string) => deleteReceiptFn({ data: { id } }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -140,7 +163,7 @@ export function useAdjustStock() {
   return useMutation({
     mutationFn: (vars: { materialId: string; quantity: number; note: string }) =>
       adjustStockFn({ data: vars }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -150,7 +173,7 @@ export function useAddWarehouse() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
     mutationFn: (input: { name: string; address: string }) => addWarehouseFn({ data: input }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -159,7 +182,7 @@ export function useUpdateWarehouse() {
   return useMutation({
     mutationFn: (vars: { id: string; input: { name: string; address: string } }) =>
       updateWarehouseFn({ data: vars }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
 
@@ -167,6 +190,6 @@ export function useDeleteWarehouse() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
     mutationFn: (id: string) => deleteWarehouseFn({ data: { id } }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 }
