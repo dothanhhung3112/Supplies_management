@@ -19,7 +19,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { formatDate, formatVnd } from "@/lib/warehouse/format";
-import { receiptTotal } from "@/lib/warehouse/selectors";
 import { useWarehouseData, useDeleteReceipt } from "@/lib/warehouse/queries";
 import type { Receipt } from "@/lib/warehouse/types";
 import { norm } from "@/lib/utils";
