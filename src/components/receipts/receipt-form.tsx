@@ -243,7 +243,7 @@ export function ReceiptForm({ receipt }: { receipt?: Receipt }) {
                         min={0}
                         step="any"
                         value={line.quantity}
-                        onChange={(e) => patchLine(line.id, { quantity: Number(e.target.value) })}
+                        onChange={(e) => patchLine(line.id, { quantity: e.target.value === "" ? 0 : Number(e.target.value) })}
                         disabled={posted}
                         className="h-11 tabular-nums"
                       />
