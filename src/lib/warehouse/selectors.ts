@@ -57,3 +57,10 @@ export function inboundByMonth(data: WarehouseData, months = 6) {
   const source = new Map(data.inboundByMonth.map((row) => [row.month, row]));
   return keys.map((month) => source.get(month) ?? { month, value: 0, qty: 0 });
 }
+
+
+export function uniqueSuppliers(data: Pick<WarehouseData, "receipts">) {
+  return [...new Set(data.receipts.map((r) => r.supplier).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "vi"),
+  );
+}
