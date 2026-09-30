@@ -20,13 +20,6 @@ import { useWarehouseData } from "@/lib/warehouse/queries";
 
 export const Route = createFileRoute("/")({ component: Home });
 
-function monthLabel(key: string) {
-  const [y, m] = key.split("-");
-  const names = ["Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"];
-  const idx = Number(m) - 1;
-  return `${names[idx] ?? m} ${y?.slice(2) ?? ""}`;
-}
-
 function Home() {
   const { data } = useWarehouseData();
   const categories = data?.categories ?? [];
