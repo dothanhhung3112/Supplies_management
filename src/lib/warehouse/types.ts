@@ -23,7 +23,7 @@ export type Material = {
   createdAt: string;
 };
 
-export type ReceiptStatus = "draft" | "posted";
+export type ReceiptStatus = "draft" | "posted" | "cancelled";
 
 export type ReceiptLine = {
   id: string;
@@ -37,6 +37,7 @@ export type Receipt = {
   code: string;
   date: string;
   supplier: string;
+  warehouseId: string;
   warehouse: string;
   note: string;
   status: ReceiptStatus;
@@ -47,7 +48,7 @@ export type Receipt = {
   postedAt: string | null;
 };
 
-export type MovementType = "in" | "adjust";
+export type MovementType = "in" | "adjust" | "reverse";
 
 export type Movement = {
   id: string;
