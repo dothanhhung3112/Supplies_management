@@ -8,7 +8,7 @@ import { StockBadge } from "@/components/stock-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatNumber, formatQty, formatVnd } from "@/lib/warehouse/format";
-import { stockMap, stockStatus, type StockStatus } from "@/lib/warehouse/selectors";
+import { stockStatus, type StockStatus } from "@/lib/warehouse/selectors";
 import { useWarehouseData } from "@/lib/warehouse/queries";
 import { norm } from "@/lib/utils";
 import { EMPTY_CATEGORIES, EMPTY_MATERIALS } from "@/lib/warehouse/empty";
@@ -190,7 +190,7 @@ function InventoryPage() {
                     <td className="px-3 py-3 font-mono tabular-nums">{formatVnd(row.value)}</td>
                     <td className="px-3 py-3">{row.material.location || "—"}</td>
                     <td className="px-3 py-3">
-                      <Button variant="outline" size="sm" onClick={() => setAdjusting(row.material)}>
+                      <Button variant="outline" size="sm" onClick={() => setAdjusting({ material: row.material, warehouseId: row.warehouseId })}>
                         Điều chỉnh
                       </Button>
                     </td>
