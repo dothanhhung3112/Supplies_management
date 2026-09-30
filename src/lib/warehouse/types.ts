@@ -41,6 +41,8 @@ export type Receipt = {
   note: string;
   status: ReceiptStatus;
   lines: ReceiptLine[];
+  lineCount: number;
+  totalValue: number;
   createdAt: string;
   postedAt: string | null;
 };
@@ -50,6 +52,7 @@ export type MovementType = "in" | "adjust";
 export type Movement = {
   id: string;
   materialId: string;
+  warehouseId: string | null;
   type: MovementType;
   quantity: number;
   unitPrice: number;
@@ -58,10 +61,39 @@ export type Movement = {
   createdAt: string;
 };
 
+export type StockBalance = {
+  materialId: string;
+  warehouseId: string | null;
+  qty: number;
+};
+
+export type MonthlyInbound = {
+  month: string;
+  value: number;
+  qty: number;
+};
+
+export type HistoryRow = Movement & {
+  materialSku: string | null;
+  materialName: string | null;
+  materialUnit: string | null;
+  receiptCode: string | null;
+  receiptSupplier: string | null;
+};
+
+export type WarehouseHistoryPage = {
+  rows: HistoryRow[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type WarehouseData = {
   categories: Category[];
   materials: Material[];
   receipts: Receipt[];
-  movements?: Movement[];
-  warehouses?: Warehouse[];
+  movements: Movement[];
+  warehouses: Warehouse[];
+  stocks: StockBalance[];
+  inboundByMonth: MonthlyInbound[];
 };
