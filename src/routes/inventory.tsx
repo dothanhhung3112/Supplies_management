@@ -11,7 +11,7 @@ import { formatNumber, formatQty, formatVnd } from "@/lib/warehouse/format";
 import { stockMap, stockStatus, type StockStatus } from "@/lib/warehouse/selectors";
 import { useWarehouseData } from "@/lib/warehouse/queries";
 import { norm } from "@/lib/utils";
-import { EMPTY_CATEGORIES, EMPTY_MATERIALS, EMPTY_MOVEMENTS } from "@/lib/warehouse/empty";
+import { EMPTY_CATEGORIES, EMPTY_MATERIALS } from "@/lib/warehouse/empty";
 import type { Material } from "@/lib/warehouse/types";
 
 export const Route = createFileRoute("/inventory")({ component: InventoryPage });
@@ -20,8 +20,7 @@ function InventoryPage() {
   const { data } = useWarehouseData();
   const categories = data?.categories ?? EMPTY_CATEGORIES;
   const materials = data?.materials ?? EMPTY_MATERIALS;
-  const movements = data?.movements ?? EMPTY_MOVEMENTS;
-  const stocks = useMemo(() => stockMap(movements), [movements]);
+  const stocks = useMemo(() => stockMap(data?.stocks ?? []), [data?.stocks]);
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [status, setStatus] = useState<"all" | StockStatus>("all");
