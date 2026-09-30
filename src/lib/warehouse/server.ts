@@ -351,11 +351,19 @@ export const deleteWarehouseFn = createServerFn({ method: "POST" })
       [data.id],
     );
     if (rows.length === 0) return "Không tìm thấy kho.";
-    const used = await sql.query<CountRow>(
-      `select count(*)::int as count from warehouse_receipts where warehouse_id = $1`,
-      [data.id],
-    );
-    if ((used[0]?.count ?? 0) > 0) return "Không thể xóa kho đang có phiếu nhập.";
+    const [receiptUsage, movementUsage] = await Promise.all([
+      sql.query<CountRow>(
+        `select count(*)::int as count from warehouse_receipts where warehouse_id = $1`,
+        [data.id],
+      ),
+      sql.query<CountRow>(
+        `select count(*)::int as count from warehouse_movements where warehouse_id = $1`,
+        [data.id],
+      ),
+    ]);
+    if ((receiptUsage[0]?.count ?? 0) > 0 || (movementUsage[0]?.count ?? 0) > 0) {
+      return "Không thể xóa kho đã có phát sinh tồn kho hoặc phiếu nhập.";
+    }
     await sql.query(`delete from warehouse_warehouses where id = $1`, [data.id]);
     return null;
   });
