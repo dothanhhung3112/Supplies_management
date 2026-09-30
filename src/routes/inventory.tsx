@@ -36,31 +36,31 @@ function InventoryPage() {
 
   const rows = useMemo(() => {
     const needle = norm(q.trim());
-    return materials
-      .flatMap((material) =>
-        warehouses
-          .filter((w) => warehouseFilter === "all" || w.id === warehouseFilter)
-          .map((warehouse) => {
-            const qty = stockByKey.get(`${material.id}:${warehouse.id}`) ?? 0;
-            return {
-              material,
-              warehouse,
-              warehouseId: warehouse.id,
-              qty,
-              status: stockStatus(qty, material.minStock),
-              value: qty * material.lastUnitPrice,
-            };
-          }),
-      )
-      .filter((row) => {
+    return stockRows
+      .map((stock) => {
+        const material = materials.find((m) => m.id === stock.materialId);
+        const warehouse = warehouses.find((w) => w.id === stock.warehouseId);
+        if (!material || !warehouse) return null;
+        const qty = stock.qty;
+        return {
+          material,
+          warehouse,
+          warehouseId: warehouse.id,
+          qty,
+          status: stockStatus(qty, material.minStock),
+          value: qty * material.lastUnitPrice,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => {
+        if (!row) return false;
+        if (warehouseFilter !== "all" && row.warehouseId !== warehouseFilter) return false;
         if (catFilter !== "all" && row.material.categoryId !== catFilter) return false;
         if (status !== "all" && row.status !== status) return false;
         if (!needle) return true;
         return norm(`${row.material.sku} ${row.material.name} ${row.material.location} ${row.warehouse.name}`).includes(needle);
       })
       .sort((a, b) => a.qty - b.qty);
-  }, [materials, warehouses, stockByKey, q, catFilter, status, warehouseFilter]);
-
+  }, [materials, warehouses, stockRows, q, catFilter, status, warehouseFilter]);
   return (
     <div className="space-y-6">
       <PageHeader
@@ -129,7 +129,7 @@ function InventoryPage() {
         <>
           <div className="space-y-2 md:hidden">
             {rows.map((row) => (
-              <article key={row.material.id} className="rounded-xl bg-card p-4 shadow-card">
+              <article key={`${row.material.id}:${row.warehouseId}`} className="rounded-xl bg-card p-4 shadow-card">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium">{row.material.name}</p>
@@ -175,7 +175,7 @@ function InventoryPage() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.material.id} className="border-b border-border last:border-0 hover:bg-secondary/50">
+                  <tr key={`${row.material.id}:${row.warehouseId}`} className="border-b border-border last:border-0 hover:bg-secondary/50">
                     <td className="px-5 py-3 font-mono text-xs">{row.material.sku}</td>
                     <td className="px-3 py-3 font-medium">{row.material.name}</td>
                     <td className="px-3 py-3 text-muted-foreground">{row.warehouse.name}</td>
