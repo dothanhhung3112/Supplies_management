@@ -89,17 +89,19 @@ function HistoryPage() {
           <ol className={isFetching ? "space-y-2 opacity-70" : "space-y-2"}>
             {rows.map((m) => {
               const inbound = m.type === "in";
+              const reversed = m.type === "reverse";
               return (
                 <li key={m.id} className="rounded-xl bg-card p-4 shadow-card sm:px-5">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={inbound ? "success" : "secondary"}>
-                          {inbound ? "Nhập kho" : "Điều chỉnh"}
+                        <Badge variant={inbound ? "success" : reversed ? "destructive" : "secondary"}>
+                          {inbound ? "Nhập kho" : reversed ? "Hoàn tác" : "Điều chỉnh"}
                         </Badge>
                         <span className="text-xs text-muted-foreground">{formatDateTime(m.createdAt)}</span>
                       </div>
                       <p className="mt-2 font-medium">{m.materialName ?? "Vật tư đã xóa"}</p>
+                      <p className="text-xs text-muted-foreground">Kho: {m.warehouseName ?? "—"}</p>
                       <p className="font-mono text-xs text-muted-foreground">{m.materialSku ?? "—"}</p>
                       <p className="mt-1 text-sm text-muted-foreground">{m.note}</p>
                       {m.receiptId && m.receiptCode ? (
@@ -117,7 +119,7 @@ function HistoryPage() {
                         {m.quantity > 0 ? "+" : ""}
                         {formatQty(m.quantity, m.materialUnit ?? undefined)}
                       </p>
-                      {inbound ? (
+                      {inbound || reversed ? (
                         <p className="font-mono text-xs text-muted-foreground tabular-nums">
                           {formatVnd(m.quantity * m.unitPrice)}
                         </p>
