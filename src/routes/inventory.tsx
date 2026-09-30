@@ -20,29 +20,46 @@ function InventoryPage() {
   const { data } = useWarehouseData();
   const categories = data?.categories ?? EMPTY_CATEGORIES;
   const materials = data?.materials ?? EMPTY_MATERIALS;
-  const stocks = useMemo(() => stockMap(data?.stocks ?? []), [data?.stocks]);
+  const warehouses = data?.warehouses ?? [];
+  const stockRows = data?.stocks ?? [];
+  const stockByKey = useMemo(
+    () => new Map(stockRows.map((s) => [`${s.materialId}:${s.warehouseId}`, s.qty])),
+    [stockRows],
+  );
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [status, setStatus] = useState<"all" | StockStatus>("all");
-  const [adjusting, setAdjusting] = useState<Material | null>(null);
+  const [warehouseFilter, setWarehouseFilter] = useState("all");
+  const [adjusting, setAdjusting] = useState<{ material: Material; warehouseId: string } | null>(null);
 
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? "—";
 
   const rows = useMemo(() => {
     const needle = norm(q.trim());
     return materials
-      .map((m) => {
-        const qty = stocks.get(m.id) ?? 0;
-        return { material: m, qty, status: stockStatus(qty, m.minStock), value: qty * m.lastUnitPrice };
-      })
+      .flatMap((material) =>
+        warehouses
+          .filter((w) => warehouseFilter === "all" || w.id === warehouseFilter)
+          .map((warehouse) => {
+            const qty = stockByKey.get(`${material.id}:${warehouse.id}`) ?? 0;
+            return {
+              material,
+              warehouse,
+              warehouseId: warehouse.id,
+              qty,
+              status: stockStatus(qty, material.minStock),
+              value: qty * material.lastUnitPrice,
+            };
+          }),
+      )
       .filter((row) => {
         if (catFilter !== "all" && row.material.categoryId !== catFilter) return false;
         if (status !== "all" && row.status !== status) return false;
         if (!needle) return true;
-        return norm(`${row.material.sku} ${row.material.name} ${row.material.location}`).includes(needle);
+        return norm(`${row.material.sku} ${row.material.name} ${row.material.location} ${row.warehouse.name}`).includes(needle);
       })
       .sort((a, b) => a.qty - b.qty);
-  }, [materials, stocks, q, catFilter, status]);
+  }, [materials, warehouses, stockByKey, q, catFilter, status, warehouseFilter]);
 
   return (
     <div className="space-y-6">
@@ -57,6 +74,14 @@ function InventoryPage() {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm mã, tên, vị trí…" className="pl-9" />
         </div>
+        <select
+          value={warehouseFilter}
+          onChange={(e) => setWarehouseFilter(e.target.value)}
+          className="h-11 rounded-md border border-input bg-card px-3 text-sm"
+        >
+          <option value="all">Tất cả kho</option>
+          {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
         <select
           value={catFilter}
           onChange={(e) => setCatFilter(e.target.value)}
@@ -108,6 +133,7 @@ function InventoryPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium">{row.material.name}</p>
+                    <p className="text-xs text-muted-foreground">{row.warehouse.name}</p>
                     <p className="font-mono text-xs text-muted-foreground">{row.material.sku}</p>
                   </div>
                   <StockBadge qty={row.qty} minStock={row.material.minStock} />
@@ -122,7 +148,7 @@ function InventoryPage() {
                   variant="outline"
                   size="sm"
                   className="mt-3"
-                  onClick={() => setAdjusting(row.material)}
+                  onClick={() => setAdjusting({ material: row.material, warehouseId: row.warehouseId })}
                 >
                   <SlidersHorizontal className="size-4" />
                   Điều chỉnh
@@ -137,6 +163,7 @@ function InventoryPage() {
                 <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   <th className="px-5 py-3 font-medium">SKU</th>
                   <th className="px-3 py-3 font-medium">Tên</th>
+                  <th className="px-3 py-3 font-medium">Kho</th>
                   <th className="px-3 py-3 font-medium">Nhóm</th>
                   <th className="px-3 py-3 font-medium">Tồn</th>
                   <th className="px-3 py-3 font-medium">Min</th>
@@ -151,6 +178,7 @@ function InventoryPage() {
                   <tr key={row.material.id} className="border-b border-border last:border-0 hover:bg-secondary/50">
                     <td className="px-5 py-3 font-mono text-xs">{row.material.sku}</td>
                     <td className="px-3 py-3 font-medium">{row.material.name}</td>
+                    <td className="px-3 py-3 text-muted-foreground">{row.warehouse.name}</td>
                     <td className="px-3 py-3 text-muted-foreground">{catName(row.material.categoryId)}</td>
                     <td className="px-3 py-3 font-mono tabular-nums">
                       {formatQty(row.qty, row.material.unit)}
@@ -177,8 +205,13 @@ function InventoryPage() {
       <AdjustDialog
         open={!!adjusting}
         onOpenChange={(v) => !v && setAdjusting(null)}
-        material={adjusting}
-        currentQty={adjusting ? (stocks.get(adjusting.id) ?? 0) : 0}
+        material={adjusting?.material ?? null}
+        warehouses={warehouses}
+        currentQty={
+          adjusting
+            ? stockByKey.get(`${adjusting.material.id}:${adjusting.warehouseId}`) ?? 0
+            : 0
+        }
       />
     </div>
   );
