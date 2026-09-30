@@ -37,7 +37,7 @@ export function useWarehouseHistory(params: {
   limit: number;
   offset: number;
   q: string;
-  type: "all" | "in" | "adjust";
+  type: "all" | "in" | "adjust" | "reverse";
 }) {
   return useQuery({
     queryKey: [...warehouseKeys.all, "history", params],
@@ -125,7 +125,7 @@ export function useDeleteMaterial() {
 type ReceiptDraft = {
   date: string;
   supplier: string;
-  warehouse: string;
+  warehouseId: string;
   note: string;
   code?: string;
   lines: ReceiptLine[];
@@ -161,7 +161,7 @@ export function useDeleteReceipt() {
 export function useAdjustStock() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
-    mutationFn: (vars: { materialId: string; quantity: number; note: string }) =>
+    mutationFn: (vars: { materialId: string; warehouseId: string; quantity: number; note: string }) =>
       adjustStockFn({ data: vars }),
     onSuccess: () => invalidate(),
   });
