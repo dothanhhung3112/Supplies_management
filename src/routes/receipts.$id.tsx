@@ -18,17 +18,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { formatDateTime } from "@/lib/warehouse/format";
-import { useWarehouseData, useDeleteReceipt } from "@/lib/warehouse/queries";
+import { useReceipt, useDeleteReceipt } from "@/lib/warehouse/queries";
 
 export const Route = createFileRoute("/receipts/$id")({ component: ReceiptDetailPage });
 
 function ReceiptDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { data } = useWarehouseData();
-  const receipt = data?.receipts.find((r) => r.id === id);
+  const { data: receipt, isPending } = useReceipt(id);
   const deleteReceipt = useDeleteReceipt();
   const [exporting, setExporting] = useState(false);
+
+  if (isPending) {
+    return <p className="text-sm text-muted-foreground">Đang tải phiếu…</p>;
+  }
 
   if (!receipt) {
     return (
@@ -47,7 +50,7 @@ function ReceiptDetailPage() {
     setExporting(true);
     try {
       const { exportReceiptDocx } = await import("@/lib/warehouse/export-receipt-docx");
-      await exportReceiptDocx(current, data?.materials ?? [], data?.warehouses ?? []);
+      await exportReceiptDocx(current, [], []);
     } catch {
       toast.error("Xuất file Word thất bại.");
     } finally {
