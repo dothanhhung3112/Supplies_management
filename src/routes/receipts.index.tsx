@@ -182,7 +182,7 @@ function ReceiptsPage() {
                       </Badge>
                     </td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums">
-                      {formatVnd(receiptTotal(r.lines))}
+                      {formatVnd(r.totalValue)}
                     </td>
                     <td className="px-3 py-3">
                       <Button
