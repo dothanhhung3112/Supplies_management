@@ -97,6 +97,7 @@ type HistoryRow = {
   materialUnit: string | null;
   receiptCode: string | null;
   receiptSupplier: string | null;
+  warehouseName: string | null;
 };
 
 const receiptSummarySql = `
@@ -218,7 +219,7 @@ export const getWarehouseHistoryFn = createServerFn({ method: "GET" })
       limit: z.number().int().min(1).max(100).default(50),
       offset: z.number().int().min(0).default(0),
       q: z.string().default(""),
-      type: z.enum(["all", "in", "adjust"]).default("all"),
+      type: z.enum(["all", "in", "adjust", "reverse"]).default("all"),
     }),
   )
   .handler(async ({ data }): Promise<import("./types").WarehouseHistoryPage> => {
@@ -260,10 +261,12 @@ export const getWarehouseHistoryFn = createServerFn({ method: "GET" })
          m.type, m.quantity, m.unit_price as "unitPrice",
          m.receipt_id as "receiptId", m.note, m.created_at as "createdAt",
          mat.sku as "materialSku", mat.name as "materialName", mat.unit as "materialUnit",
-         r.code as "receiptCode", r.supplier as "receiptSupplier"
+         r.code as "receiptCode", r.supplier as "receiptSupplier",
+         w.name as "warehouseName"
        from warehouse_movements m
        left join warehouse_materials mat on mat.id = m.material_id
        left join warehouse_receipts r on r.id = m.receipt_id
+       left join warehouse_warehouses w on w.id = m.warehouse_id
        ${whereSql}
        order by m.created_at desc, m.id desc
        limit $${pageParams.length - 1} offset $${pageParams.length}`,
@@ -350,7 +353,7 @@ export const deleteWarehouseFn = createServerFn({ method: "POST" })
     if (rows.length === 0) return "Không tìm thấy kho.";
     const used = await sql.query<CountRow>(
       `select count(*)::int as count from warehouse_receipts where warehouse_id = $1`,
-      [rows[0].name],
+      [data.id],
     );
     if ((used[0]?.count ?? 0) > 0) return "Không thể xóa kho đang có phiếu nhập.";
     await sql.query(`delete from warehouse_warehouses where id = $1`, [data.id]);
@@ -475,7 +478,7 @@ export const saveReceiptFn = createServerFn({ method: "POST" })
       await Promise.all([
         sql.query(
           `update warehouse_receipts set date = $1, supplier = $2, warehouse_id = $3, note = $4 where id = $5`,
-          [input.date, input.supplier, input.warehouse, input.note, existingId],
+          [input.date, input.supplier, input.warehouseId, input.note, existingId],
         ),
         sql.query(`delete from warehouse_receipt_lines where receipt_id = $1`, [existingId]),
       ]);
@@ -526,6 +529,7 @@ export const postReceiptFn = createServerFn({ method: "POST" })
     const receipt = receiptRows[0];
     if (!receipt) return "Không tìm thấy phiếu.";
     if (receipt.status === "posted") return "Phiếu đã ghi sổ.";
+    if (receipt.status === "cancelled") return "Phiếu đã hủy.";
     if (!receipt.supplier.trim()) return "Nhập nhà cung cấp trước khi ghi sổ.";
     if (lines.length === 0) return "Phiếu chưa có dòng vật tư.";
     if (lines.some((l) => !l.materialId || l.quantity <= 0)) {
