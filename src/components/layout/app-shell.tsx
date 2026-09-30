@@ -98,7 +98,7 @@ function Sidebar({ pathname }: { pathname: string }) {
       </div>
       <div className="border-t border-sidebar-border p-4">
         <p className="text-xs leading-relaxed text-sidebar-muted">
-          Sổ kho nội bộ. Dữ liệu lưu trên trình duyệt này.
+          Sổ kho nội bộ. Dữ liệu được lưu trên cơ sở dữ liệu.
         </p>
       </div>
     </aside>
