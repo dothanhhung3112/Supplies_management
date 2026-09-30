@@ -3,7 +3,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, norm } from "@/lib/utils";
 import type { Category, Material } from "@/lib/warehouse/types";
 
 export function MaterialPicker({
@@ -25,10 +25,10 @@ export function MaterialPicker({
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? "";
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = norm(q.trim());
     if (!needle) return materials;
     return materials.filter((m) => {
-      const hay = `${m.sku} ${m.name} ${catName(m.categoryId)}`.toLowerCase();
+      const hay = norm(`${m.sku} ${m.name} ${catName(m.categoryId)}`);
       return hay.includes(needle);
     });
   }, [materials, q, categories]);
