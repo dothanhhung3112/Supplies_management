@@ -14,7 +14,6 @@ import {
   inboundByMonth,
   inventoryValue,
   lowStockMaterials,
-  receiptTotal,
 } from "@/lib/warehouse/selectors";
 import { useWarehouseData } from "@/lib/warehouse/queries";
 
@@ -149,7 +148,7 @@ function Home() {
                     <p className="truncate text-sm text-muted-foreground">{r.supplier}</p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="font-mono text-sm tabular-nums">{formatVnd(receiptTotal(r.lines))}</span>
+                    <span className="font-mono text-sm tabular-nums">{formatVnd(r.totalValue)}</span>
                     <Badge variant={r.status === "posted" ? "success" : "secondary"}>
                       {r.status === "posted" ? "Đã ghi sổ" : "Nháp"}
                     </Badge>
