@@ -7,6 +7,8 @@ import {
   addMaterialFn,
   updateMaterialFn,
   deleteMaterialFn,
+  ocrMaterialsFromImagesFn,
+  addMaterialsFromImportFn,
   saveReceiptFn,
   postReceiptFn,
   deleteReceiptFn,
@@ -99,6 +101,31 @@ export function useAddMaterial() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
     mutationFn: (input: MaterialInput) => addMaterialFn({ data: input }),
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useOcrMaterialsFromImages() {
+  return useMutation({
+    mutationFn: (images: string[]) => ocrMaterialsFromImagesFn({ data: { images } }),
+  });
+}
+
+export function useAddMaterialsFromImport() {
+  const invalidate = useInvalidateWarehouse();
+  return useMutation({
+    mutationFn: (
+      items: Array<{
+        sku: string;
+        name: string;
+        unit: string;
+        categoryId: string;
+        minStock: number;
+        location: string;
+        note: string;
+        lastUnitPrice: number;
+      }>,
+    ) => addMaterialsFromImportFn({ data: { items } }),
     onSuccess: () => invalidate(),
   });
 }
