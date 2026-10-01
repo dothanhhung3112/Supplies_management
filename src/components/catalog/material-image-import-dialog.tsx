@@ -140,6 +140,7 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
           const duplicate = (counts.get(row.sku.trim().toLowerCase()) ?? 0) > 1;
           return {
             ...row,
+            unit: row.unit.trim() || "cái",
             selected: !row.existingMaterialId && !row.needsReview && !duplicate,
             categoryId: fallbackCategory,
             minStock: "0",
