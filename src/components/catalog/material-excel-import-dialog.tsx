@@ -48,9 +48,8 @@ export function MaterialExcelImportDialog({ open, onOpenChange }: Props) {
       setError("");
       setStep("file");
       if (inputRef.current) inputRef.current.value = "";
-      addMaterials.reset();
     }
-  }, [open, addMaterials]);
+  }, [open]);
 
   const existingSkus = useMemo(
     () => new Set((data?.materials ?? []).map((material) => material.sku.trim().toLowerCase())),
