@@ -419,6 +419,55 @@ export const addMaterialFn = createServerFn({ method: "POST" })
     return id;
   });
 
+export const addMaterialsFromImportFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      items: z.array(materialInputSchema).min(1).max(200),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    const existingRows = await sql.query<{ sku: string }>(
+      `select sku from warehouse_materials
+       where lower(sku) = any($1::text[])`,
+      [data.items.map((item) => item.sku.trim().toLowerCase())],
+    );
+    const existing = new Set(existingRows.map((row) => row.sku.trim().toLowerCase()));
+    const seen = new Set<string>();
+    const skipped: string[] = [];
+    let added = 0;
+
+    for (const item of data.items) {
+      const sku = item.sku.trim();
+      const key = sku.toLowerCase();
+      if (!sku || existing.has(key) || seen.has(key)) {
+        skipped.push(sku || "(trống)");
+        continue;
+      }
+
+      await sql.query(
+        `insert into warehouse_materials
+           (id, sku, name, category_id, unit, min_stock, location, note, last_unit_price)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          uid("mat"),
+          sku,
+          item.name.trim(),
+          item.categoryId,
+          item.unit.trim() || "cái",
+          item.minStock,
+          item.location.trim(),
+          item.note.trim(),
+          item.lastUnitPrice,
+        ],
+      );
+      seen.add(key);
+      added += 1;
+    }
+
+    return { added, skipped };
+  });
+
 export const updateMaterialFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.string(), input: materialInputSchema }))
   .handler(async ({ data }) => {
