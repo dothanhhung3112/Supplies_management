@@ -23,6 +23,16 @@ export type Material = {
   createdAt: string;
 };
 
+export type MaterialImportRow = {
+  sku: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  needsReview: boolean;
+  warning: string;
+  existingMaterialId?: string;
+};
+
 export type ReceiptStatus = "draft" | "posted" | "cancelled";
 
 export type ReceiptLine = {
