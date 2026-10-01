@@ -71,8 +71,6 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
       setRows([]);
       setError("");
       setStep("capture");
-      ocr.reset();
-      addMaterials.reset();
     }
   }, [open]);
 
