@@ -86,7 +86,7 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
       if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([sku]) => sku));
-  }, [rows, existingSkus]);
+  }, [rows]);
 
   const selectedCount = rows.filter((row) => row.selected).length;
   const problemCount = rows.filter(
@@ -130,16 +130,24 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
     try {
       const result = await ocr.mutateAsync(images);
       const fallbackCategory = categories[0]?.id ?? "";
+      const counts = new Map<string, number>();
+      for (const row of result) {
+        const key = row.sku.trim().toLowerCase();
+        if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
       setRows(
-        result.map((row) => ({
+        result.map((row) => {
+          const duplicate = counts.get(row.sku.trim().toLowerCase()) === 2;
+          return {
           ...row,
-          selected: !row.existingMaterialId && !row.needsReview,
+          selected: !row.existingMaterialId && !row.needsReview && !duplicate,
           categoryId: fallbackCategory,
           minStock: "0",
           location: "",
           note: "",
           lastUnitPrice: "0",
-        })),
+          };
+        }),
       );
       setStep("review");
     } catch (err) {
