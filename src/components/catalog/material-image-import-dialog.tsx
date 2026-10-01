@@ -76,6 +76,11 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
     }
   }, [open]);
 
+  const existingSkus = useMemo(
+    () => new Set((data?.materials ?? []).map((material) => material.sku.trim().toLowerCase())),
+    [data?.materials],
+  );
+
   const duplicateSkus = useMemo(() => {
     const counts = new Map<string, number>();
     for (const row of rows) {
@@ -83,13 +88,13 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
       if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([sku]) => sku));
-  }, [rows]);
+  }, [rows, existingSkus]);
 
   const selectedCount = rows.filter((row) => row.selected).length;
   const problemCount = rows.filter(
     (row) =>
       row.needsReview ||
-      Boolean(row.existingMaterialId) ||
+      existingSkus.has(row.sku.trim().toLowerCase()) ||
       duplicateSkus.has(row.sku.trim().toLowerCase()) ||
       !row.sku.trim() ||
       !row.name.trim() ||
@@ -297,7 +302,8 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
                 <tbody>
                   {rows.map((row, index) => {
                     const duplicate = duplicateSkus.has(row.sku.trim().toLowerCase());
-                    const problem = row.needsReview || Boolean(row.existingMaterialId) || duplicate;
+                    const existing = existingSkus.has(row.sku.trim().toLowerCase());
+                    const problem = row.needsReview || existing || duplicate;
                     return (
                       <tr
                         key={`${row.sku}-${index}`}
@@ -318,10 +324,10 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
                             onChange={(e) => updateRow(index, { sku: e.target.value })}
                             className="h-9 font-mono text-xs"
                           />
-                          {row.existingMaterialId && (
+                          {existing && (
                             <p className="mt-1 text-[11px] text-amber-700">Đã có trong danh mục</p>
                           )}
-                          {duplicate && !row.existingMaterialId && (
+                          {duplicate && !existing && (
                             <p className="mt-1 text-[11px] text-amber-700">Mã trùng trong ảnh</p>
                           )}
                         </td>
