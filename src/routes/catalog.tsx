@@ -1,10 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Camera, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { FileSpreadsheet, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CategoryDialog } from "@/components/catalog/category-dialog";
 import { MaterialDialog } from "@/components/catalog/material-dialog";
-import { MaterialImageImportDialog } from "@/components/catalog/material-image-import-dialog";
+import { MaterialExcelImportDialog } from "@/components/catalog/material-excel-import-dialog";
 import { WarehouseDialog } from "@/components/catalog/warehouse-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -124,8 +124,8 @@ function CatalogPage() {
           tab === "materials" ? (
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={() => setMaterialImportOpen(true)}>
-                <Camera className="size-4" />
-                Nhập từ ảnh
+                <FileSpreadsheet className="size-4" />
+                Nhập từ Excel
               </Button>
               <Button
                 onClick={() => {
@@ -345,7 +345,7 @@ function CatalogPage() {
         </div>
       )}
 
-      <MaterialImageImportDialog
+      <MaterialExcelImportDialog
         open={materialImportOpen}
         onOpenChange={setMaterialImportOpen}
       />
