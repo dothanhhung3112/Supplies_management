@@ -1,9 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Camera, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CategoryDialog } from "@/components/catalog/category-dialog";
 import { MaterialDialog } from "@/components/catalog/material-dialog";
+import { MaterialImageImportDialog } from "@/components/catalog/material-image-import-dialog";
 import { WarehouseDialog } from "@/components/catalog/warehouse-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -49,6 +50,7 @@ function CatalogPage() {
   const [catFilter, setCatFilter] = useState("all");
 
   const [matOpen, setMatOpen] = useState(false);
+  const [materialImportOpen, setMaterialImportOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [whOpen, setWhOpen] = useState(false);
 
@@ -120,15 +122,21 @@ function CatalogPage() {
         description="Quản lý mã SKU, đơn vị tính, định mức tồn và vị trí kệ."
         actions={
           tab === "materials" ? (
-            <Button
-              onClick={() => {
-                setEditingMat(null);
-                setMatOpen(true);
-              }}
-            >
-              <Plus className="size-4" />
-              Thêm vật tư
-            </Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={() => setMaterialImportOpen(true)}>
+                <Camera className="size-4" />
+                Nhập từ ảnh
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditingMat(null);
+                  setMatOpen(true);
+                }}
+              >
+                <Plus className="size-4" />
+                Thêm vật tư
+              </Button>
+            </div>
           ) : tab === "categories" ? (
             <Button
               onClick={() => {
@@ -337,6 +345,10 @@ function CatalogPage() {
         </div>
       )}
 
+      <MaterialImageImportDialog
+        open={materialImportOpen}
+        onOpenChange={setMaterialImportOpen}
+      />
       <MaterialDialog
         open={matOpen}
         onOpenChange={(v) => {
