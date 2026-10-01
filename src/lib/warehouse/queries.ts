@@ -104,6 +104,23 @@ export function useAddMaterial() {
   });
 }
 
+export function useAddMaterialsFromImport() {
+  const invalidate = useInvalidateWarehouse();
+  return useMutation({
+    mutationFn: (items: Array<{
+      sku: string;
+      name: string;
+      unit: string;
+      categoryId: string;
+      minStock: number;
+      location: string;
+      note: string;
+      lastUnitPrice: number;
+    }>) => addMaterialsFromImportFn({ data: { items } }),
+    onSuccess: () => invalidate(),
+  });
+}
+
 export function useUpdateMaterial() {
   const invalidate = useInvalidateWarehouse();
   return useMutation({
