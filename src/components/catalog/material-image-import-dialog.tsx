@@ -137,15 +137,15 @@ export function MaterialImageImportDialog({ open, onOpenChange }: Props) {
       }
       setRows(
         result.map((row) => {
-          const duplicate = counts.get(row.sku.trim().toLowerCase()) === 2;
+          const duplicate = (counts.get(row.sku.trim().toLowerCase()) ?? 0) > 1;
           return {
-          ...row,
-          selected: !row.existingMaterialId && !row.needsReview && !duplicate,
-          categoryId: fallbackCategory,
-          minStock: "0",
-          location: "",
-          note: "",
-          lastUnitPrice: "0",
+            ...row,
+            selected: !row.existingMaterialId && !row.needsReview && !duplicate,
+            categoryId: fallbackCategory,
+            minStock: "0",
+            location: "",
+            note: "",
+            lastUnitPrice: "0",
           };
         }),
       );
