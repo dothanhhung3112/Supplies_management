@@ -99,9 +99,9 @@ function parseXml(bytes: Uint8Array): Document {
 }
 
 function normalizeTarget(target: string) {
-  const value = target.replaceAll("\\\\", "/").replace(/^\\/+/, "");
+  const value = target.replaceAll("\\", "/").replace(/^\/+/, "").replace(/^\.\//, "");
   if (value.startsWith("xl/")) return value;
-  return `xl/${value.replace(/^\\//, "")}`;
+  return `xl/${value}`;
 }
 
 function cellColumn(ref: string) {
@@ -181,9 +181,9 @@ async function parseWorkbook(buffer: ArrayBuffer) {
 }
 
 function parseDelimited(text: string) {
-  const lines = text.replace(/^\\uFEFF/, "").split(/\\r?\\n/).filter((line) => line.trim());
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
   if (!lines.length) return [];
-  const delimiter = lines[0].includes("\\t") ? "\\t" : ",";
+  const delimiter = lines[0].includes("\t") ? "\t" : ",";
   return lines.map((line) => {
     const values: string[] = [];
     let current = "";
