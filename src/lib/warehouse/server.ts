@@ -369,7 +369,7 @@ export const ocrMaterialsFromImagesFn = createServerFn({ method: "POST" })
           "Nếu một ô khó đọc, để needsReview=true và mô tả ngắn gọn điểm nghi ngờ trong warning thay vì đoán. " +
           "Nếu đọc rõ thì needsReview=false và warning là chuỗi rỗng.",
       },
-      ...data.images.map((image) => ({ type: "input_image", image_url: image })),
+      ...data.images.map((image) => ({ type: "input_image", image_url: image, detail: "high" })),
     ];
 
     const response = await fetch("https://api.x.ai/v1/responses", {
@@ -380,6 +380,8 @@ export const ocrMaterialsFromImagesFn = createServerFn({ method: "POST" })
       },
       body: JSON.stringify({
         model: "grok-4.7",
+        store: false,
+        reasoning_effort: "low",
         input: [{ role: "user", content }],
         text: {
           format: {
